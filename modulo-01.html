@@ -4,16 +4,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css"></head><body>
 <div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 01 de 12 · 15h</span></div>
-<header class="hero"><h1>Antes da primeira linha de código</h1><p>Você vai planejar o dungeon crawler 3D, preparar o ambiente de desenvolvimento e rodar o primeiro script em C#, tudo dentro de um repositório Git.</p></header>
+<header class="hero"><h1>Antes da primeira linha de código</h1><p>Você vai planejar o dungeon crawler 3D, preparar o ambiente de desenvolvimento e rodar o primeiro script em C#, tudo dentro de um repositório Git. E, desde a primeira aula, você usa o que já produziu na UC anterior: os assets são a ponte entre as duas.</p></header>
 <div class="layout">
 <nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol>
-<li><a href="#projeto">O jogo-guia</a></li><li><a href="#gdd">GDD enxuto</a></li><li><a href="#requisitos">Requisitos</a></li><li><a href="#diagrama">Diagrama de classes</a></li><li><a href="#ambiente">Ambiente</a></li><li><a href="#kit">Kit e greybox</a></li><li><a href="#script">Primeiro script</a></li><li><a href="#git">Git</a></li><li><a href="#entrega">Checkpoint</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<li><a href="#ponte">A ponte entre as UCs</a></li><li><a href="#projeto">O jogo-guia</a></li><li><a href="#inventario">Inventário de assets</a></li><li><a href="#gdd">GDD enxuto</a></li><li><a href="#requisitos">Requisitos</a></li><li><a href="#diagrama">Diagrama de classes</a></li><li><a href="#ambiente">Ambiente</a></li><li><a href="#kit">Kit e greybox</a></li><li><a href="#script">Primeiro script</a></li><li><a href="#git">Git</a></li><li><a href="#entrega">Checkpoint</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
 <article>
+<section id="ponte"><h2>A ponte entre as duas UCs</h2>
+<p>Na UC <strong>Planejamento e Produção de Elementos Multimídia de Jogos Digitais</strong> você produziu os elementos de um jogo: logotipo, arte, pixel art, modelos 3D, texturas, vídeo e som. Nesta UC você faz esses elementos <strong>funcionarem</strong>: o código dá movimento, regras e resposta ao jogador.</p>
+<p>Um jogo digital só existe quando as duas partes se encontram. Sem assets, o código controla cubos cinzas. Sem código, os assets ficam em uma pasta. Por isso, nada do que você fez antes será descartado.</p>
+<svg class="uml" viewBox="0 0 640 230" role="img" aria-label="Fluxo: assets criados na UC anterior entram na pasta Assets da Unity e viram cena jogável com código C#">
+<rect x="10" y="10" width="190" height="210"/><text class="h" x="22" y="34">UC anterior</text>
+<text x="22" y="62">Illustrator: logo</text><text x="22" y="86">Photoshop: arte</text><text x="22" y="110">Aseprite: pixel art</text><text x="22" y="134">Blender: modelos e UV</text><text x="22" y="158">Premiere: teaser</text><text x="22" y="182">Audition: áudio</text><text x="22" y="206">GDD e ludologia</text>
+<rect x="250" y="70" width="140" height="90"/><text class="h" x="272" y="105">Assets/</text><text x="262" y="130">pasta do projeto</text><text x="262" y="148">na Unity</text>
+<rect x="440" y="10" width="190" height="210"/><text class="h" x="452" y="34">Esta UC</text>
+<text x="452" y="62">cena e iluminação</text><text x="452" y="86">scripts em C#</text><text x="452" y="110">física e colisões</text><text x="452" y="134">inimigos e IA</text><text x="452" y="158">dados e save</text><text x="452" y="182">build do jogo</text>
+<path d="M200 115 L250 115"/><path d="M390 115 L440 115"/><path d="M240 108 L250 115 L240 122"/><path d="M430 108 L440 115 L430 122"/></svg>
+<table><tr><th>O que você fez na UC anterior</th><th>Onde entra no jogo</th><th>Módulo</th></tr>
+<tr><td>Logotipo e assets vetoriais (Atividades 01 e 02)</td><td>Tela de título, ícones de itens e HUD</td><td>4 e 9</td></tr>
+<tr><td>Concept art de cenário (Atividade 03)</td><td>Referência de paleta e clima das salas</td><td>1 e 4</td></tr>
+<tr><td>Key Art e teaser (Atividades 04 e 05)</td><td>Menu inicial, capa e vídeo de apresentação da build</td><td>12</td></tr>
+<tr><td>Pixel art (Atividade 06)</td><td>Ícones de inventário e interface 2D</td><td>6 e 9</td></tr>
+<tr><td>Modelos e UV: baú, objetos de cena (Atividades 08 e 09)</td><td>Itens coletáveis e props da masmorra</td><td>3 e 6</td></tr>
+<tr><td>Materiais PBR e galpão texturizado (Atividades 10 e 10.8)</td><td>Primeira sala do jogo</td><td>1 e 3</td></tr>
+<tr><td>Otimização e exportação (Atividades 11 e 12)</td><td>Importação dos modelos na Unity sem retrabalho</td><td>4</td></tr>
+<tr><td>Rigging (Atividade 13)</td><td>Personagem que anda, ataca e morre</td><td>4</td></tr>
+<tr><td>Edição e mixagem de som (Atividade 17)</td><td>Efeitos sonoros e trilha da masmorra</td><td>4 e 9</td></tr>
+<tr><td>GDD e ludologia (atividade de pesquisa)</td><td>GDD do projeto da equipe</td><td>1</td></tr></table>
+<div class="note"><strong>Pense como estúdio.</strong> Em empresas, artistas e programadores trabalham em paralelo e se encontram na engine. A qualidade do que você entrega na primeira UC define a facilidade de trabalho nesta. Modelos sem Apply Scale, UV bagunçada ou texturas enormes aparecem aqui como bugs.</div></section>
 <section id="projeto"><h2>O jogo-guia</h2>
 <p>Durante a UC você constrói <strong>Masmorra do Código</strong>: um dungeon crawler 3D em terceira pessoa. O herói explora salas, abre portas com chaves, coleta moedas e poções, enfrenta slimes e esqueletos e salva o progresso.</p>
 <p>Cada módulo acrescenta uma peça a esse jogo. A equipe faz o mesmo percurso em outro jogo 3D, com a mecânica que escolher (plataforma, stealth, survival, corrida, puzzle).</p>
 <table><caption class="sr" style="display:none">Roteiro</caption><tr><th>Bloco</th><th>Tempo</th></tr><tr><td>Pré-produção: GDD, requisitos e diagrama</td><td>4h</td></tr><tr><td>Unity, IDE e kit de assets</td><td>3h</td></tr><tr><td>Primeiro script e depuração</td><td>3h</td></tr><tr><td>Git e colaboração</td><td>2h</td></tr><tr><td>Atividade paralela da equipe</td><td>3h</td></tr></table></section>
 
+<section id="inventario"><h2>Inventário de assets</h2>
+<p>Antes de planejar, liste o que a equipe já tem. Esse inventário diz o que reaproveitar, o que ajustar e o que ainda precisa ser feito.</p>
+<table><tr><th>Asset</th><th>Origem (atividade)</th><th>Formato</th><th>Situação</th></tr>
+<tr><td>Ex.: baú</td><td>Atividades 08 a 10</td><td>.fbx</td><td>Pronto para importar</td></tr>
+<tr><td>Ex.: logotipo</td><td>Atividade 01</td><td>.png com transparência</td><td>Falta exportar em 512 px</td></tr>
+<tr><td>Ex.: herói</td><td>(não existe)</td><td>-</td><td>Usar o kit provisório</td></tr></table>
+<p>Marque cada linha como <em>Pronto</em>, <em>Ajustar</em> ou <em>Criar</em>. Entregue esse inventário junto com o GDD.</p></section>
 <section id="gdd"><h2>GDD enxuto</h2>
 <p>O Game Design Document (GDD) registra o que o jogo é antes de existir código. Um GDD de duas páginas basta nesta fase, desde que responda estas perguntas:</p>
 <table><tr><th>Seção</th><th>Pergunta</th><th>No jogo-guia</th></tr>
@@ -55,12 +84,14 @@
 
 <section id="kit"><h2>Importando o kit e montando o greybox</h2>
 <p>Greybox é a primeira sala feita só com formas básicas, para testar escala, câmera e fluxo antes de gastar tempo com arte.</p>
+<p>O kit abaixo é <strong>provisório</strong>: serve para a aula rodar desde o início. Conforme o semestre avança, ele é trocado pelos assets que você mesmo produziu na UC anterior.</p>
 <p><a class="dl" href="Dungeon3D_Kit.zip" download>Baixar Dungeon3D_Kit.zip</a></p>
 <ul class="assets"><li>Floor_Tile</li><li>Wall</li><li>Wall_Door</li><li>Door</li><li>Pillar</li><li>Crate</li><li>Barrel</li><li>Torch</li><li>Chest</li><li>Coin</li><li>Key</li><li>Potion</li><li>Sword</li><li>Player</li><li>Enemy_Slime</li><li>Enemy_Skeleton</li></ul>
 <div class="steps">
 <div class="step"><h3>Copie as pastas</h3><p>Descompacte o zip e arraste <code>Models</code> e <code>Textures</code> para a pasta <code>Assets</code>. A Unity importa cada OBJ e cria um material por cor.</p></div>
-<div class="step"><h3>Monte uma sala de 3 por 3 tiles</h3><p>Cada tile mede 4 por 4 metros. Posicione nove <code>Floor_Tile</code> em múltiplos de 4 no eixo X e Z, e cerque a sala com <code>Wall</code>. Deixe uma abertura com <code>Wall_Door</code>.</p></div>
+<div class="step"><h3>Monte uma sala de 3 por 3 tiles</h3><p>Se você tem o galpão da Atividade 10.8, use-o como primeira sala. Caso contrário, use o kit. Cada tile do kit mede 4 por 4 metros. Posicione nove <code>Floor_Tile</code> em múltiplos de 4 no eixo X e Z, e cerque a sala com <code>Wall</code>. Deixe uma abertura com <code>Wall_Door</code>.</p></div>
 <div class="step"><h3>Teste a escala</h3><p>Crie um <em>Capsule</em> de altura 2 como jogador provisório e confira se cabe na porta. Se algo estiver gigante ou minúsculo, o problema é de escala de importação: confira <em>Scale Factor</em> no modelo.</p></div>
+<div class="step"><h3>Importe um modelo seu do Blender</h3><p>Pegue o baú (ou outro objeto) que você exportou na Atividade 12 e arraste o <code>.fbx</code> para <code>Assets/Models</code>. Selecione o arquivo e confira no Inspector, na aba <em>Model</em>, o <em>Scale Factor</em> e, na aba <em>Materials</em>, se as texturas foram reconhecidas. Coloque o baú ao lado do <code>Chest</code> do kit: se os tamanhos diferirem muito, falta Apply Scale ou conferir a unidade no Blender.</p></div>
 <div class="step"><h3>Salve como Prefab</h3><p>Arraste a sala da hierarquia para <code>Assets/Prefabs</code>. Prefabs permitem reutilizar a sala sem copiar objeto por objeto.</p></div></div>
 <div class="check"><strong>Checkpoint:</strong> a sala aparece completa na aba Game, sem materiais rosa e com a capsule passando pela porta.</div></section>
 
@@ -125,11 +156,12 @@ git push -u origin main</code></pre></div></div>
 
 <section id="entrega"><h2>Checkpoint do módulo</h2>
 <p>Ao final do módulo, o projeto da equipe deve ter:</p>
-<ul><li>GDD de duas páginas e tabela de requisitos (mínimo 6 RF e 3 RNF);</li><li>diagrama de classes com pelo menos 5 classes;</li><li>projeto Unity com sala greybox e o <code>HelloDungeon</code> funcionando;</li><li>repositório Git com no mínimo 3 commits e um ramo mesclado.</li></ul>
+<ul><li>inventário de assets da equipe, com a origem de cada um na UC anterior;</li><li>GDD de duas páginas e tabela de requisitos (mínimo 6 RF e 3 RNF);</li><li>diagrama de classes com pelo menos 5 classes;</li><li>projeto Unity com sala greybox, pelo menos 2 assets produzidos pela equipe na UC anterior e o <code>HelloDungeon</code> funcionando;</li><li>repositório Git com no mínimo 3 commits e um ramo mesclado.</li></ul>
 <p>As instruções completas estão na Atividade Prática do módulo.</p></section>
 
 <section id="erros"><h2>Problemas comuns</h2>
 <details><summary>Os modelos aparecem rosa</summary><div><p>O pipeline de render do projeto não reconheceu os materiais importados. Em projetos com template URP, use <code>Edit &gt; Rendering &gt; Materials &gt; Convert Built-in Materials to URP</code> ou crie materiais URP/Lit e reatribua as cores.</p></div></details>
+<details><summary>Meu modelo do Blender aparece gigante, minúsculo ou deitado</summary><div><p>Confira no Blender se a escala foi aplicada (<kbd>Ctrl</kbd>+<kbd>A</kbd> &gt; Scale) e se o eixo da exportação FBX está correto. Na Unity, ajuste <em>Scale Factor</em> no Inspector do modelo. Este é o motivo de as Atividades 11 e 12 insistirem em organização e exportação.</p></div></details>
 <details><summary>O script não aparece ao arrastar para o objeto</summary><div><p>Geralmente há erro de compilação em outro script ou o nome do arquivo difere do nome da classe. Corrija o erro vermelho no Console e confira os nomes.</p></div></details>
 <details><summary>A IDE não mostra sugestões de código da Unity</summary><div><p>Confira se a IDE correta está em <em>External Script Editor</em> e use <code>Assets &gt; Open C# Project</code> para regenerar os arquivos de projeto.</p></div></details>
 <details><summary>O Git mostra milhares de arquivos para commitar</summary><div><p>O <code>.gitignore</code> foi criado depois do primeiro <code>git add</code>. Rode <code>git rm -r --cached .</code>, depois <code>git add .</code> e commite de novo.</p></div></details></section>
