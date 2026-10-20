@@ -1,6 +1,6 @@
 # Masmorra do Código
 
-Aulas guiadas de codificação de jogos 3D em Unity e C# — UC Codificação de Sistemas de Jogos Digitais (SENAI CTTI).
+Aulas guiadas de codificação de jogos 3D em Unity e C# — UC Codificação de Sistemas de Jogos Digitais.
 
 - `index.html`: mapa dos 12 módulos
 - `modulo-01.html`: Pré-produção e ambiente
