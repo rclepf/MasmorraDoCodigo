@@ -1,0 +1,137 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 01 · Pré-produção e ambiente</title><meta name="description" content="Planeje o jogo 3D, configure Unity, IDE e Git e rode o primeiro script em C#.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 01 de 12 · 15h</span></div>
+<header class="hero"><h1>Antes da primeira linha de código</h1><p>Você vai planejar o dungeon crawler 3D, preparar o ambiente de desenvolvimento e rodar o primeiro script em C#, tudo dentro de um repositório Git.</p></header>
+<div class="layout">
+<nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol>
+<li><a href="#projeto">O jogo-guia</a></li><li><a href="#gdd">GDD enxuto</a></li><li><a href="#requisitos">Requisitos</a></li><li><a href="#diagrama">Diagrama de classes</a></li><li><a href="#ambiente">Ambiente</a></li><li><a href="#kit">Kit e greybox</a></li><li><a href="#script">Primeiro script</a></li><li><a href="#git">Git</a></li><li><a href="#entrega">Checkpoint</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="projeto"><h2>O jogo-guia</h2>
+<p>Durante a UC você constrói <strong>Masmorra do Código</strong>: um dungeon crawler 3D em terceira pessoa. O herói explora salas, abre portas com chaves, coleta moedas e poções, enfrenta slimes e esqueletos e salva o progresso.</p>
+<p>Cada módulo acrescenta uma peça a esse jogo. A equipe faz o mesmo percurso em outro jogo 3D, com a mecânica que escolher (plataforma, stealth, survival, corrida, puzzle).</p>
+<table><caption class="sr" style="display:none">Roteiro</caption><tr><th>Bloco</th><th>Tempo</th></tr><tr><td>Pré-produção: GDD, requisitos e diagrama</td><td>4h</td></tr><tr><td>Unity, IDE e kit de assets</td><td>3h</td></tr><tr><td>Primeiro script e depuração</td><td>3h</td></tr><tr><td>Git e colaboração</td><td>2h</td></tr><tr><td>Atividade paralela da equipe</td><td>3h</td></tr></table></section>
+
+<section id="gdd"><h2>GDD enxuto</h2>
+<p>O Game Design Document (GDD) registra o que o jogo é antes de existir código. Um GDD de duas páginas basta nesta fase, desde que responda estas perguntas:</p>
+<table><tr><th>Seção</th><th>Pergunta</th><th>No jogo-guia</th></tr>
+<tr><td>Conceito</td><td>O que o jogador faz em uma frase?</td><td>Explora masmorras 3D, derrota inimigos e escapa com o tesouro.</td></tr>
+<tr><td>Público</td><td>Para quem e em que plataforma?</td><td>Jogadores casuais, PC, partidas de 10 a 15 minutos.</td></tr>
+<tr><td>Mecânicas</td><td>Quais verbos o jogador usa?</td><td>Andar, atacar, abrir porta, coletar, usar poção.</td></tr>
+<tr><td>Câmera e controles</td><td>Como se vê e se controla?</td><td>Terceira pessoa; WASD e mouse; espaço ataca.</td></tr>
+<tr><td>Progressão</td><td>Como se ganha ou perde?</td><td>Vence ao chegar à sala final; perde com vida zerada.</td></tr>
+<tr><td>Escopo</td><td>O que fica de fora?</td><td>Sem multiplayer, sem geração de som própria.</td></tr></table>
+<div class="note"><strong>Escopo é decisão de projeto.</strong> Uma lista do que o jogo não terá evita que o semestre acabe com metade das mecânicas inacabadas.</div></section>
+
+<section id="requisitos"><h2>Requisitos funcionais e não funcionais</h2>
+<p>Requisitos funcionais (RF) dizem o que o sistema faz. Não funcionais (RNF) dizem como ele deve se comportar. Cada requisito precisa ser testável: no módulo 12 você volta a esta tabela e marca o que foi cumprido.</p>
+<table><tr><th>ID</th><th>Requisito</th><th>Módulo</th></tr>
+<tr><td>RF01</td><td>O jogador se move em 3D com teclado e câmera acompanhando.</td><td>2</td></tr>
+<tr><td>RF02</td><td>Paredes e portas bloqueiam o jogador; portas abrem com chave.</td><td>3</td></tr>
+<tr><td>RF03</td><td>Inimigos têm vida, atacam e perseguem o jogador.</td><td>5 a 8</td></tr>
+<tr><td>RF04</td><td>Itens coletáveis alteram moedas, chaves ou vida.</td><td>6</td></tr>
+<tr><td>RF05</td><td>O progresso é salvo e carregado.</td><td>10</td></tr>
+<tr><td>RNF01</td><td>O jogo roda a 60 quadros por segundo no PC do laboratório.</td><td>12</td></tr>
+<tr><td>RNF02</td><td>O save não pode ser editado à mão sem detecção.</td><td>11</td></tr>
+<tr><td>RNF03</td><td>O código é versionado e documentado com comentários XML.</td><td>1 e 12</td></tr></table></section>
+
+<section id="diagrama"><h2>Diagrama de classes inicial</h2>
+<p>Este diagrama é o ponto de partida. Ele vai mudar a cada módulo, e as mudanças ficam registradas no repositório.</p>
+<svg class="uml" viewBox="0 0 640 250" role="img" aria-label="Diagrama de classes com GameManager, Player, Enemy e Item">
+<rect x="230" y="10" width="180" height="70"/><text class="h" x="262" y="34">GameManager</text><line x1="230" y1="42" x2="410" y2="42"/><text x="240" y="62">+ moedas: int</text>
+<rect x="20" y="150" width="170" height="90"/><text class="h" x="68" y="174">Player</text><line x1="20" y1="182" x2="190" y2="182"/><text x="30" y="202">+ vida: int</text><text x="30" y="222">+ Mover()</text>
+<rect x="235" y="150" width="170" height="90"/><text class="h" x="288" y="174">Enemy</text><line x1="235" y1="182" x2="405" y2="182"/><text x="245" y="202">+ vida: int</text><text x="245" y="222">+ Atacar()</text>
+<rect x="450" y="150" width="170" height="90"/><text class="h" x="512" y="174">Item</text><line x1="450" y1="182" x2="620" y2="182"/><text x="460" y="202">+ tipo: string</text><text x="460" y="222">+ Coletar()</text>
+<path d="M270 80 L105 150"/><path d="M320 80 L320 150"/><path d="M370 80 L535 150"/></svg>
+<p>Repare que Player e Enemy têm atributos parecidos. No módulo 5 você resolve essa repetição com herança.</p></section>
+
+<section id="ambiente"><h2>Preparando o ambiente</h2><div class="steps">
+<div class="step"><h3>Instale a Unity</h3><p>Instale o Unity Hub e, por ele, o Editor na versão LTS indicada pelo professor, com o módulo de build para Windows. Todos da turma usam a mesma versão, para os projetos abrirem em qualquer máquina.</p></div>
+<div class="step"><h3>Escolha a IDE</h3><p>Use Visual Studio Community com a carga de trabalho "Desenvolvimento de jogos com Unity", ou outra IDE aprovada pelo professor. Em Unity, abra <code>Edit &gt; Preferences &gt; External Tools</code> e selecione a IDE em <em>External Script Editor</em>.</p></div>
+<div class="step"><h3>Crie o projeto</h3><p>No Hub, escolha <em>New project</em> e um template 3D. Nomeie como <code>MasmorraDoCodigo</code> (jogo-guia) ou com o nome do jogo da equipe. Evite acentos e espaços no nome da pasta.</p></div>
+<div class="step"><h3>Ajuste o projeto para versionamento</h3><p>Em <code>Edit &gt; Project Settings &gt; Editor</code>, confira <em>Version Control Mode: Visible Meta Files</em> e <em>Asset Serialization Mode: Force Text</em>. Com isso, o Git consegue comparar cenas e prefabs.</p></div></div></section>
+
+<section id="kit"><h2>Importando o kit e montando o greybox</h2>
+<p>Greybox é a primeira sala feita só com formas básicas, para testar escala, câmera e fluxo antes de gastar tempo com arte.</p>
+<p><a class="dl" href="Dungeon3D_Kit.zip" download>Baixar Dungeon3D_Kit.zip</a></p>
+<ul class="assets"><li>Floor_Tile</li><li>Wall</li><li>Wall_Door</li><li>Door</li><li>Pillar</li><li>Crate</li><li>Barrel</li><li>Torch</li><li>Chest</li><li>Coin</li><li>Key</li><li>Potion</li><li>Sword</li><li>Player</li><li>Enemy_Slime</li><li>Enemy_Skeleton</li></ul>
+<div class="steps">
+<div class="step"><h3>Copie as pastas</h3><p>Descompacte o zip e arraste <code>Models</code> e <code>Textures</code> para a pasta <code>Assets</code>. A Unity importa cada OBJ e cria um material por cor.</p></div>
+<div class="step"><h3>Monte uma sala de 3 por 3 tiles</h3><p>Cada tile mede 4 por 4 metros. Posicione nove <code>Floor_Tile</code> em múltiplos de 4 no eixo X e Z, e cerque a sala com <code>Wall</code>. Deixe uma abertura com <code>Wall_Door</code>.</p></div>
+<div class="step"><h3>Teste a escala</h3><p>Crie um <em>Capsule</em> de altura 2 como jogador provisório e confira se cabe na porta. Se algo estiver gigante ou minúsculo, o problema é de escala de importação: confira <em>Scale Factor</em> no modelo.</p></div>
+<div class="step"><h3>Salve como Prefab</h3><p>Arraste a sala da hierarquia para <code>Assets/Prefabs</code>. Prefabs permitem reutilizar a sala sem copiar objeto por objeto.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> a sala aparece completa na aba Game, sem materiais rosa e com a capsule passando pela porta.</div></section>
+
+<section id="script"><h2>Primeiro script e depuração</h2>
+<p>Scripts em Unity são classes que herdam de <code>MonoBehaviour</code>. A engine chama <code>Start</code> uma vez, quando o objeto aparece, e <code>Update</code> a cada quadro.</p>
+<div class="steps">
+<div class="step"><h3>Crie o script</h3><p>Em <code>Assets/Scripts</code>, crie um C# Script chamado <code>HelloDungeon</code> (o nome do arquivo precisa ser igual ao nome da classe) e cole o código.</p>
+<span class="file">HelloDungeon.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="c">/// &lt;summary&gt;Primeiro script: confirma que o ciclo de vida da Unity funciona.&lt;/summary&gt;</span>
+<span class="k">public class</span> HelloDungeon : MonoBehaviour
+{
+    [SerializeField] <span class="k">private string</span> nomeDoJogo = <span class="s">"Masmorra do Código"</span>;
+    <span class="k">private int</span> quadros;
+
+    <span class="k">void</span> Start()
+    {
+        Debug.Log($<span class="s">"Bem-vindo a {nomeDoJogo}!"</span>);
+    }
+
+    <span class="k">void</span> Update()
+    {
+        quadros++;
+        <span class="k">if</span> (quadros % 300 == 0)
+            Debug.Log($<span class="s">"Passaram {quadros} quadros"</span>);
+    }
+}</code></pre></div>
+<div class="step"><h3>Anexe e rode</h3><p>Arraste o script para a capsule na hierarquia e aperte Play. Abra a aba <em>Console</em>: a mensagem de boas-vindas aparece uma vez, e a de quadros a cada 300 quadros. Edite <code>nomeDoJogo</code> no Inspector sem mexer no código.</p></div>
+<div class="step"><h3>Depure com breakpoint</h3><p>Na IDE, clique na margem da linha <code>quadros++;</code> para criar um breakpoint e use <em>Attach to Unity</em>. Ao apertar Play, a execução pausa na linha. Passe o mouse sobre <code>quadros</code> para ver o valor e use <em>Step Over</em> para avançar linha a linha.</p></div></div>
+<p><code>Debug.Log</code> serve para observar o que acontece sem parar o jogo. O breakpoint serve para parar e inspecionar. Use cada um quando fizer sentido.</p></section>
+
+<section id="git"><h2>Versionamento com Git</h2>
+<p>O repositório é o histórico do projeto e a base do trabalho em equipe. Crie <code>.gitignore</code> na raiz do projeto antes do primeiro commit, para não versionar pastas geradas pela Unity.</p>
+<span class="file">.gitignore</span>
+<pre><code>[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+.vs/
+.idea/
+*.csproj
+*.sln</code></pre>
+<div class="steps">
+<div class="step"><h3>Inicialize e faça o primeiro commit</h3>
+<pre><code>git init
+git add .
+git commit -m "feat: projeto Unity inicial com sala greybox"</code></pre></div>
+<div class="step"><h3>Trabalhe em ramos</h3><p>Cada mecânica nova nasce em um ramo e volta para o principal quando funciona.</p>
+<pre><code>git switch -c feat/hello-dungeon
+git add Assets/Scripts
+git commit -m "feat: HelloDungeon com Debug.Log"
+git switch main
+git merge feat/hello-dungeon</code></pre></div>
+<div class="step"><h3>Publique no repositório remoto</h3><p>Crie um repositório vazio no GitHub e conecte-o.</p>
+<pre><code>git remote add origin &lt;URL-do-repositorio&gt;
+git push -u origin main</code></pre></div></div>
+<div class="note"><strong>Boas mensagens de commit</strong> dizem o que mudou e por quê, em uma linha. "arrumei" não ajuda ninguém, nem você daqui a um mês.</div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<p>Ao final do módulo, o projeto da equipe deve ter:</p>
+<ul><li>GDD de duas páginas e tabela de requisitos (mínimo 6 RF e 3 RNF);</li><li>diagrama de classes com pelo menos 5 classes;</li><li>projeto Unity com sala greybox e o <code>HelloDungeon</code> funcionando;</li><li>repositório Git com no mínimo 3 commits e um ramo mesclado.</li></ul>
+<p>As instruções completas estão na Atividade Prática do módulo.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>Os modelos aparecem rosa</summary><div><p>O pipeline de render do projeto não reconheceu os materiais importados. Em projetos com template URP, use <code>Edit &gt; Rendering &gt; Materials &gt; Convert Built-in Materials to URP</code> ou crie materiais URP/Lit e reatribua as cores.</p></div></details>
+<details><summary>O script não aparece ao arrastar para o objeto</summary><div><p>Geralmente há erro de compilação em outro script ou o nome do arquivo difere do nome da classe. Corrija o erro vermelho no Console e confira os nomes.</p></div></details>
+<details><summary>A IDE não mostra sugestões de código da Unity</summary><div><p>Confira se a IDE correta está em <em>External Script Editor</em> e use <code>Assets &gt; Open C# Project</code> para regenerar os arquivos de projeto.</p></div></details>
+<details><summary>O Git mostra milhares de arquivos para commitar</summary><div><p>O <code>.gitignore</code> foi criado depois do primeiro <code>git add</code>. Rode <code>git rm -r --cached .</code>, depois <code>git add .</code> e commite de novo.</p></div></details></section>
+</article></div>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>
