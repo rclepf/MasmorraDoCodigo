@@ -1,0 +1,143 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 04 · Assets, animação e áudio</title><meta name="description" content="Integração de elementos multimídia em Unity: importação, Animator, iluminação, UI e áudio.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 04 de 12 · 15h</span></div>
+<header class="hero"><h1>Assets, animação e áudio</h1><p>Você importa os assets da UC anterior com o pipeline correto, anima o herói, acende a masmorra com luz e coloca interface e som para completar a cena.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#importacao">Importando sem retrabalho</a></li><li><a href="#animator">Animando o herói</a></li><li><a href="#luz">Acendendo a masmorra</a></li><li><a href="#ui">Interface e identidade visual</a></li><li><a href="#audio">Colocando som no jogo</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Este é o módulo em que as duas UCs mais se encontram. Cada elemento produzido antes passa por aqui:</p>
+<table><tr><th>Você produziu</th><th>Aqui vira</th></tr><tr><td>Modelos e rig do Blender (Atividades 08 a 13)</td><td>Personagem animado e props importados via FBX</td></tr><tr><td>Texturas e materiais PBR (Atividades 09, 10 e 10.8)</td><td>Materiais da Unity com Albedo, Normal e Smoothness</td></tr><tr><td>Logotipo e arte vetorial (Atividades 01 e 02)</td><td>Imagens de interface (Canvas)</td></tr><tr><td>Pixel art (Atividade 06)</td><td>Ícones do HUD com filtro Point</td></tr><tr><td>Edição de som e mixagem (Atividade 17)</td><td>AudioClips de passos, coleta e ambiente</td></tr></table>
+<div class="note"><strong>Sem a base anterior?</strong> Use o kit: ele traz modelos e uma textura de pedra. Para animações, use os scripts procedurais desta aula, que funcionam em qualquer modelo.</div></section>
+
+<section id="importacao"><h2>Importando sem retrabalho</h2>
+<div class="steps"><div class="step"><h3>Escolha o formato</h3><p>Para modelos do Blender, exporte em <strong>FBX</strong> (Atividade 12). A Unity também aceita OBJ, como no kit. Mantenha uma pasta por tipo: <code>Models</code>, <code>Textures</code>, <code>Materials</code>, <code>Audio</code>, <code>Sprites</code>.</p></div><div class="step"><h3>Confira o Inspector do modelo</h3><p>Aba <em>Model</em>: <em>Scale Factor</em> deve resultar em tamanho real (1 unidade = 1 metro). Aba <em>Rig</em>: para personagens humanoides, use <em>Humanoid</em>; para os demais, <em>Generic</em>. Aba <em>Materials</em>: use <em>Extract Materials</em> para editar os materiais fora do modelo.</p></div><div class="step"><h3>Importe texturas com o tipo certo</h3><p>Selecione cada imagem e ajuste <em>Texture Type</em>: <em>Default</em> para Albedo, <em>Normal map</em> para normais. Para pixel art, use <em>Sprite (2D and UI)</em>, <em>Filter Mode: Point (no filter)</em> e <em>Compression: None</em>, ou ela fica borrada.</p></div><div class="step"><h3>Monte o prefab</h3><p>Arraste o modelo para a cena, ajuste materiais e componentes e arraste para <code>Assets/Prefabs</code>. A partir daqui, use sempre o prefab.</p></div></div>
+<p>Este é o mesmo cuidado de nomes e organização da Atividade 11. Um projeto bagunçado vira horas perdidas procurando arquivos.</p></section>
+
+<section id="animator"><h2>Animando o herói</h2>
+<p>O <strong>Animator</strong> é uma máquina de estados: cada estado é uma animação (parado, andando, atacando) e as transições entre eles dependem de parâmetros que o código atualiza.</p>
+<div class="steps"><div class="step"><h3>Crie o Animator Controller</h3><p>Em <code>Assets/Animations</code>, crie um <em>Animator Controller</em> chamado <code>Heroi</code>. Abra a aba <em>Animator</em>, crie os estados <code>Parado</code> e <code>Andando</code> arrastando os clipes de animação do seu rig e adicione o parâmetro <code>Velocidade</code> do tipo <em>Float</em>.</div><div class="step"><h3>Crie as transições</h3><p>De <code>Parado</code> para <code>Andando</code>: condição <code>Velocidade</code> <em>Greater</em> 0.1. De <code>Andando</code> para <code>Parado</code>: <code>Velocidade</code> <em>Less</em> 0.1. Desligue <em>Has Exit Time</em> em ambas, para a troca ser imediata.</div><div class="step"><h3>Conecte ao código</h3><p>Anexe o script abaixo ao objeto do modelo (o filho com o componente <em>Animator</em>).</p></div></div>
+<span class="file">AnimadorJogador.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> AnimadorJogador : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> CharacterController controle;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> suavizacao = 10f;
+
+    <span class="k">private</span> Animator animator;
+    <span class="k">private</span> <span class="k">float</span> velocidadeSuavizada;
+    <span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> <span class="k">int</span> Velocidade = Animator.StringToHash(<span class="s">"Velocidade"</span>);
+
+    <span class="k">void</span> Awake() =&gt; animator = GetComponent&lt;Animator&gt;();
+
+    <span class="k">void</span> Update()
+    {
+        <span class="c">// Velocidade horizontal real do personagem, ignorando a queda</span>
+        Vector3 horizontal = <span class="k">new</span> Vector3(controle.velocity.x, 0f, controle.velocity.z);
+        velocidadeSuavizada = Mathf.Lerp(velocidadeSuavizada, horizontal.magnitude, suavizacao * Time.deltaTime);
+        animator.SetFloat(Velocidade, velocidadeSuavizada);
+    }
+}</code></pre>
+<p><code>Animator.StringToHash</code> converte o nome do parâmetro em um número uma única vez, o que é mais rápido do que procurar o texto a cada quadro.</p>
+<h3>Se você não tem animações</h3>
+<p>O herói e os inimigos do kit são modelos rígidos, sem esqueleto. Para eles ganharem vida, anime por código:</p>
+<span class="file">BalancoVisual.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> BalancoVisual : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> amplitude = 0.08f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> frequencia = 4f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> respiro = 0.03f;
+
+    <span class="k">private</span> Vector3 posicaoInicial;
+    <span class="k">private</span> Vector3 escalaInicial;
+
+    <span class="k">void</span> Start()
+    {
+        posicaoInicial = transform.localPosition;
+        escalaInicial = transform.localScale;
+    }
+
+    <span class="k">void</span> Update()
+    {
+        <span class="k">float</span> onda = Mathf.Sin(Time.time * frequencia);
+        transform.localPosition = posicaoInicial + Vector3.up * (onda * amplitude);
+        transform.localScale = escalaInicial * (1f + onda * respiro);
+    }
+}</code></pre>
+<p>Coloque este script no <strong>modelo</strong>, que é filho do objeto de gameplay, e não no objeto raiz: assim o balanço não interfere no movimento nem nos colisores.</p></section>
+
+<section id="luz"><h2>Acendendo a masmorra</h2>
+<p>Luz é parte de gameplay: ela guia o olhar do jogador e cria clima. Uma sala escura com tochas acesas conta uma história sem texto.</p>
+<div class="steps"><div class="step"><h3>Reduza a luz geral</h3><p>Em <code>Window &gt; Rendering &gt; Lighting</code>, escureça o <em>Environment</em> (Intensity Multiplier em 0.2). Diminua a intensidade da <em>Directional Light</em>.</div><div class="step"><h3>Adicione luzes às tochas</h3><p>Dentro do prefab <code>Torch</code>, crie uma <em>Point Light</em> alaranjada logo acima da chama, com alcance de 6 a 8 metros e coloque o script abaixo.</div></div>
+<span class="file">LuzTocha.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+[RequireComponent(typeof(Light))]
+<span class="k">public</span> <span class="k">class</span> LuzTocha : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> intensidadeBase = 2.5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> variacao = 0.6f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidade = 3f;
+
+    <span class="k">private</span> Light luz;
+    <span class="k">private</span> <span class="k">float</span> semente;
+
+    <span class="k">void</span> Awake()
+    {
+        luz = GetComponent&lt;Light&gt;();
+        semente = Random.value * 100f;   <span class="c">// cada tocha com ritmo próprio</span>
+    }
+
+    <span class="k">void</span> Update()
+    {
+        <span class="k">float</span> ruido = Mathf.PerlinNoise(semente, Time.time * velocidade);
+        luz.intensity = intensidadeBase + (ruido - 0.5f) * 2f * variacao;
+    }
+}</code></pre>
+<p>Ruído de Perlin gera variações suaves e aleatórias, bem mais naturais que <code>Random.Range</code> a cada quadro, que daria um pisca-pisca nervoso.</p></section>
+
+<section id="ui"><h2>Interface e identidade visual</h2>
+<div class="steps"><div class="step"><h3>Crie o Canvas</h3><p>Em <code>GameObject &gt; UI &gt; Canvas</code>. Ajuste <em>UI Scale Mode</em> para <em>Scale With Screen Size</em> e resolução de referência 1920 por 1080.</div><div class="step"><h3>Coloque o logotipo</h3><p>Importe o PNG do logotipo (Atividade 01, exportado com fundo transparente) como <em>Sprite (2D and UI)</em> e arraste para o Canvas como <em>Image</em>. Ancore no topo, centralizado.</div><div class="step"><h3>Crie o contador de moedas</h3><p>Adicione um <em>TextMeshPro - Text</em> no canto superior direito com o ícone de moeda em pixel art ao lado. O script do próximo módulo vai atualizá-lo.</div></div>
+<p>Âncoras são o segredo da UI: um elemento ancorado no canto continua no canto em qualquer resolução. Teste na aba Game trocando a proporção da tela.</p></section>
+
+<section id="audio"><h2>Colocando som no jogo</h2>
+<p>Dois componentes bastam: o <strong>AudioSource</strong> toca sons e o <strong>AudioListener</strong> (já presente na câmera) escuta. Para efeitos curtos, use <code>PlayOneShot</code>, que permite sobrepor vários sons sem cortar o anterior.</p>
+<span class="file">SomColeta.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+[RequireComponent(typeof(AudioSource))]
+<span class="k">public</span> <span class="k">class</span> SomColeta : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> AudioClip somMoeda;
+    [SerializeField] <span class="k">private</span> AudioClip somChave;
+    [SerializeField, Range(0f, 1f)] <span class="k">private</span> <span class="k">float</span> volume = 0.8f;
+
+    <span class="k">private</span> AudioSource fonte;
+
+    <span class="k">void</span> Awake() =&gt; fonte = GetComponent&lt;AudioSource&gt;();
+
+    <span class="k">public</span> <span class="k">void</span> Tocar(Coletavel.Tipo tipo)
+    {
+        AudioClip clipe = tipo == Coletavel.Tipo.Moeda ? somMoeda : somChave;
+        <span class="k">if</span> (clipe != <span class="k">null</span>) fonte.PlayOneShot(clipe, volume);
+    }
+}</code></pre>
+<p>Anexe ao <code>Jogador</code> e, no <code>Inventario</code> do módulo 3, chame <code>GetComponent&lt;SomColeta&gt;()?.Tocar(tipo)</code> dentro de <code>Adicionar</code>. Para trilha ambiente, crie um <code>AudioSource</code> com <em>Loop</em> ligado e <em>Spatial Blend</em> em 0.</p>
+<p>Use os sons que você editou e mixou na UC anterior. Prefira <strong>WAV</strong> para efeitos curtos e <strong>OGG</strong> para trilhas longas.</p>
+<div class="check"><strong>Checkpoint:</strong> o herói anda animado, as tochas piscam, o logotipo e o contador aparecem na tela e coletar uma moeda toca um som.</div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>pelo menos 3 assets seus ou do kit importados com escala, materiais e tipo de textura corretos;</li><li>personagem com Animator (ou balanço procedural) respondendo à velocidade;</li><li>iluminação intencional, com ao menos 2 fontes de luz de cena;</li><li>interface com logotipo e um indicador de jogo;</li><li>3 sons integrados e disparados por código.</li></ul>
+<p>As instruções completas estão na Atividade Prática C04.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O personagem faz a animação mas desliza pelo chão</summary><div><p>A velocidade do clipe não combina com a do movimento. Ajuste <em>Speed</em> do estado ou a <code>velocidade</code> do script até os pés não escorregarem.</p></div></details><details><summary>O sprite de pixel art aparece borrado</summary><div><p>Troque <em>Filter Mode</em> para <em>Point (no filter)</em> e <em>Compression</em> para <em>None</em> nas configurações da imagem.</p></div></details><details><summary>Os materiais do modelo aparecem rosa</summary><div><p>O shader não é compatível com o pipeline de render do projeto. Use <em>Edit &gt; Rendering &gt; Materials &gt; Convert Built-in Materials to URP</em> ou recrie com o shader <em>Lit</em>.</p></div></details><details><summary>Não ouço nada ao coletar</summary><div><p>Verifique se os clipes foram arrastados no Inspector, se a câmera tem <em>AudioListener</em> e se o volume do jogo (ícone de alto-falante na aba Game) não está mudo.</p></div></details><details><summary>O Animator não muda de estado</summary><div><p>Confira o nome exato do parâmetro (<code>Velocidade</code>) no controlador e no script, e se o componente <em>Animator</em> tem o controlador atribuído.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC04_Assets_Animacao_Audio.pdf" download>Baixar Atividade Prática C04 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-03.html">← Módulo 03: Física e colisões</a><a href="modulo-05.html">Módulo 05: Herança e POO →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

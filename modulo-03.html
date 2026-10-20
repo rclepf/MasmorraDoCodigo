@@ -1,0 +1,167 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 03 · Física, colisões e interação</title><meta name="description" content="Física 3D em Unity: Rigidbody, colliders, triggers, layers e Raycast para interação.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 03 de 12 · 15h</span></div>
+<header class="hero"><h1>Física, colisões e interação</h1><p>Você faz paredes bloquearem o herói, cria itens que reagem ao toque e portas que abrem com chave, e usa raios invisíveis para interagir com o mundo.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#conceitos">Como a física da Unity funciona</a></li><li><a href="#paredes">Dando corpo à masmorra</a></li><li><a href="#coletaveis">Itens que reagem ao toque</a></li><li><a href="#raycast">Raios invisíveis: Raycast</a></li><li><a href="#porta">A porta que exige chave</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>A forma de um modelo decide como ele colide. Um baú com milhares de polígonos vira um colisor pesado e lento; um baú otimizado, como na Atividade 11, permite usar um colisor simples em volta dele. A topologia limpa que você praticou no Blender agora tem efeito direto na performance.</p>
+<div class="note"><strong>Regra de ouro:</strong> a malha que o jogador vê pode ser detalhada. A malha que a física usa deve ser a mais simples possível, geralmente uma caixa, esfera ou cápsula.</div></section>
+
+<section id="conceitos"><h2>Como a física da Unity funciona</h2>
+<p>Dois objetos colidem quando ambos têm <strong>Collider</strong>. Para um deles reagir à gravidade e a forças, ele precisa também de um <strong>Rigidbody</strong>.</p>
+<table><tr><th>Componente</th><th>Para que serve</th><th>Quando usar</th></tr><tr><td>Box, Sphere, Capsule Collider</td><td>Formas simples e baratas para colisão</td><td>Quase sempre: paredes, itens, inimigos</td></tr><tr><td>Mesh Collider (Convex)</td><td>Colisor que segue a malha do modelo</td><td>Peças complexas e poucas; evite em muitos objetos</td></tr><tr><td>Rigidbody</td><td>Faz o objeto obedecer à física (peso, gravidade, empurrões)</td><td>Caixas empurráveis, projéteis, objetos que caem</td></tr><tr><td>CharacterController</td><td>Move personagens com colisão, sem simulação física completa</td><td>Herói controlado pelo jogador, como no módulo 2</td></tr><tr><td>Is Trigger</td><td>O colisor não bloqueia: apenas avisa que algo entrou</td><td>Coletáveis, zonas de perigo, gatilhos de sala</td></tr></table>
+<p>Há duas famílias de eventos. Colisões <em>bloqueiam</em> e chamam <code>OnCollisionEnter</code>. Triggers <em>não bloqueiam</em> e chamam <code>OnTriggerEnter</code>. Itens coletáveis quase sempre são triggers: o herói atravessa a moeda e o código reage.</p></section>
+
+<section id="paredes"><h2>Dando corpo à masmorra</h2>
+<div class="steps"><div class="step"><h3>Gere colisores nos modelos do cenário</h3><p>Selecione os modelos <code>Floor_Tile</code>, <code>Wall</code>, <code>Wall_Door</code> e <code>Pillar</code> na pasta Models. Na aba <em>Model</em>, marque <em>Generate Colliders</em> e clique em Apply. Para peças encaixadas em sala, prefira adicionar <em>Box Collider</em> nos prefabs da sala: é mais barato.</p></div><div class="step"><h3>Organize em camadas (Layers)</h3><p>Em <code>Edit &gt; Project Settings &gt; Tags and Layers</code>, crie as camadas <code>Cenario</code>, <code>Jogador</code>, <code>Inimigo</code> e <code>Interagivel</code>. Atribua cada uma aos objetos correspondentes. Camadas permitem filtrar o que raios e colisões enxergam.</div><div class="step"><h3>Teste o bloqueio</h3><p>Aperte Play e tente atravessar uma parede. O <code>CharacterController</code> do módulo 2 já respeita colisores. Se atravessar, falta collider na parede.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> o herói é bloqueado por paredes e pilares e anda sobre o piso sem cair.</div></section>
+
+<section id="coletaveis"><h2>Itens que reagem ao toque</h2>
+<p>Crie um prefab <code>Moeda</code> a partir do modelo do kit, adicione um <em>Sphere Collider</em> com <em>Is Trigger</em> ligado e coloque o script abaixo. Faça o mesmo para <code>Chave</code>.</p>
+<span class="file">Coletavel.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Coletavel : MonoBehaviour
+{
+    <span class="k">public</span> <span class="k">enum</span> Tipo { Moeda, Chave }
+
+    [SerializeField] <span class="k">private</span> Tipo tipo = Tipo.Moeda;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidadeGiro = 90f;
+
+    <span class="k">void</span> Update()
+    {
+        <span class="c">// Gira para chamar atenção do jogador</span>
+        transform.Rotate(Vector3.up, velocidadeGiro * Time.deltaTime, Space.World);
+    }
+
+    <span class="k">void</span> OnTriggerEnter(Collider outro)
+    {
+        <span class="k">if</span> (!outro.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+
+        Inventario inventario = outro.GetComponent&lt;Inventario&gt;();
+        <span class="k">if</span> (inventario == <span class="k">null</span>) <span class="k">return</span>;
+
+        inventario.Adicionar(tipo);
+        Destroy(gameObject);
+    }
+}</code></pre>
+<p>Para os eventos de trigger funcionarem de forma garantida, ao menos um dos dois objetos precisa ter <em>Rigidbody</em>. Adicione um <em>Rigidbody</em> ao <code>Jogador</code> e marque <em>Is Kinematic</em>: ele continua sendo movido pelo <code>CharacterController</code>, mas passa a gerar os eventos.</p>
+<span class="file">Inventario.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Inventario : MonoBehaviour
+{
+    <span class="k">public</span> <span class="k">int</span> Moedas { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> Chaves { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+
+    <span class="k">public</span> <span class="k">void</span> Adicionar(Coletavel.Tipo tipo)
+    {
+        <span class="k">if</span> (tipo == Coletavel.Tipo.Moeda) Moedas++;
+        <span class="k">else</span> Chaves++;
+
+        Debug.Log($<span class="s">"Moedas: {Moedas} | Chaves: {Chaves}"</span>);
+    }
+
+    <span class="k">public</span> <span class="k">bool</span> UsarChave()
+    {
+        <span class="k">if</span> (Chaves &lt;= 0) <span class="k">return</span> <span class="k">false</span>;
+        Chaves--;
+        <span class="k">return</span> <span class="k">true</span>;
+    }
+}</code></pre></section>
+
+<section id="raycast"><h2>Raios invisíveis: Raycast</h2>
+<p>Um <strong>Raycast</strong> dispara uma linha invisível e informa o primeiro colisor atingido. É usado para interação ("o que estou olhando?"), tiro instantâneo, visão de inimigos e detecção de chão.</p>
+<span class="file">Interacao.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.InputSystem;
+
+<span class="k">public</span> <span class="k">class</span> Interacao : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> alcance = 2f;
+    [SerializeField] <span class="k">private</span> LayerMask camadaInteragivel;
+
+    <span class="k">private</span> InputAction interagir;
+
+    <span class="k">void</span> Awake()
+    {
+        interagir = <span class="k">new</span> InputAction(<span class="s">"Interagir"</span>, InputActionType.Button, <span class="s">"&lt;Keyboard&gt;/e"</span>);
+        interagir.AddBinding(<span class="s">"&lt;Gamepad&gt;/buttonSouth"</span>);
+    }
+
+    <span class="k">void</span> OnEnable() =&gt; interagir.Enable();
+    <span class="k">void</span> OnDisable() =&gt; interagir.Disable();
+
+    <span class="k">void</span> Update()
+    {
+        Vector3 origem = transform.position + Vector3.up;
+        Debug.DrawRay(origem, transform.forward * alcance, Color.yellow);
+
+        <span class="k">if</span> (!interagir.WasPressedThisFrame()) <span class="k">return</span>;
+
+        <span class="k">if</span> (Physics.Raycast(origem, transform.forward, <span class="k">out</span> RaycastHit alvo, alcance, camadaInteragivel))
+        {
+            Porta porta = alvo.collider.GetComponentInParent&lt;Porta&gt;();
+            <span class="k">if</span> (porta != <span class="k">null</span>) porta.Tentar(GetComponent&lt;Inventario&gt;());
+        }
+    }
+}</code></pre>
+<p>O raio sai na altura do peito para não bater no chão. A <code>LayerMask</code> faz o raio ignorar tudo que não está na camada <code>Interagivel</code>, e o <code>Debug.DrawRay</code> mostra o raio na aba Scene.</p></section>
+
+<section id="porta"><h2>A porta que exige chave</h2>
+<p>Use o modelo <code>Door</code> como filho de um objeto vazio posicionado na dobradiça. O vazio gira, e a porta gira junto com ele. Coloque a porta na camada <code>Interagivel</code> com um <em>Box Collider</em>.</p>
+<span class="file">Porta.cs</span>
+<pre><code><span class="k">using</span> System.Collections;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Porta : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> anguloAberta = 100f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> duracao = 0.6f;
+    [SerializeField] <span class="k">private</span> <span class="k">bool</span> exigeChave = <span class="k">true</span>;
+
+    <span class="k">private</span> <span class="k">bool</span> aberta;
+
+    <span class="k">public</span> <span class="k">void</span> Tentar(Inventario inventario)
+    {
+        <span class="k">if</span> (aberta) <span class="k">return</span>;
+
+        <span class="k">if</span> (exigeChave &amp;&amp; (inventario == <span class="k">null</span> || !inventario.UsarChave()))
+        {
+            Debug.Log(<span class="s">"Porta trancada: falta uma chave."</span>);
+            <span class="k">return</span>;
+        }
+        StartCoroutine(Abrir());
+    }
+
+    <span class="k">private</span> IEnumerator Abrir()
+    {
+        aberta = <span class="k">true</span>;
+        Quaternion inicio = transform.rotation;
+        Quaternion fim = inicio * Quaternion.Euler(0f, anguloAberta, 0f);
+
+        <span class="k">for</span> (<span class="k">float</span> t = 0f; t &lt; 1f; t += Time.deltaTime / duracao)
+        {
+            transform.rotation = Quaternion.Slerp(inicio, fim, t);
+            yield <span class="k">return</span> <span class="k">null</span>;
+        }
+        transform.rotation = fim;
+    }
+}</code></pre>
+<p>A <strong>corrotina</strong> (<code>IEnumerator</code> com <code>yield return null</code>) executa um trecho de código ao longo de vários quadros. É a forma simples de fazer animações por código sem acumular variáveis no <code>Update</code>.</p>
+<div class="check"><strong>Checkpoint:</strong> a moeda some ao toque e aumenta o contador; a porta fecha o caminho, recusa sem chave e abre com chave ao apertar E.</div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>cenário com colisores simples e camadas organizadas;</li><li>pelo menos 2 tipos de itens coletáveis com trigger;</li><li>uma interação por Raycast ligada à mecânica da equipe;</li><li>nenhum Mesh Collider em objeto que se move.</li></ul>
+<p>As instruções completas estão na Atividade Prática C03.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O trigger da moeda não dispara</summary><div><p>Confira três coisas: o <em>Is Trigger</em> está marcado no item, o <code>Jogador</code> tem a tag <code>Player</code> e pelo menos um dos dois objetos tem <em>Rigidbody</em>.</p></div></details><details><summary>O Raycast nunca acerta a porta</summary><div><p>Veja se a porta está na camada configurada em <code>camadaInteragivel</code> no Inspector, se tem collider e se o alcance chega até ela. O raio amarelo na Scene mostra por onde ele passa.</p></div></details><details><summary>O herói atravessa a parede mesmo com collider</summary><div><p>O <em>Collider</em> da parede pode estar marcado como <em>Is Trigger</em>. Triggers não bloqueiam.</p></div></details><details><summary>A caixa empurrada vibra ou atravessa o chão</summary><div><p>Objetos rápidos precisam de <em>Collision Detection: Continuous</em> no Rigidbody. Evite escalas muito pequenas no collider.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC03_Fisica_Interacao.pdf" download>Baixar Atividade Prática C03 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-02.html">← Módulo 02: Movimento 3D</a><a href="modulo-04.html">Módulo 04: Assets e animação →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

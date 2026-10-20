@@ -1,0 +1,171 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 06 · Componentes e dados</title><meta name="description" content="Programação orientada a componentes em Unity: composição, interfaces, UnityEvent e ScriptableObject.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 06 de 12 · 15h</span></div>
+<header class="hero"><h1>Componentes e dados</h1><p>Você divide o comportamento em peças pequenas que se encaixam em qualquer objeto: vida, ataque e itens, descritos por dados e não por código repetido.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#composicao">Composição no lugar de herança</a></li><li><a href="#vida">O componente Vida</a></li><li><a href="#ataque">Ataque por componente</a></li><li><a href="#dados">Itens descritos por dados: ScriptableObject</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Quando você montou o baú no Blender, ele era feito de partes: corpo, tampa, ferragens, cada uma com seu material. Componentes seguem a mesma lógica: em vez de um objeto gigante, um objeto leve com peças encaixáveis.</p>
+<div class="note"><strong>Seus itens viram dados.</strong> As poções, moedas, chaves e armas que você modelou ou desenhou ganham um arquivo de dados (nome, ícone, valor) que o jogo lê. Para criar um item novo, basta criar um arquivo, sem programar.</div></section>
+
+<section id="composicao"><h2>Composição no lugar de herança</h2>
+<p>No módulo 5, vimos que herdar cria hierarquias rígidas. Na <strong>programação orientada a componentes</strong>, cada característica vira um componente independente:</p>
+<table><tr><th>Componente</th><th>Responsabilidade</th><th>Usado por</th></tr><tr><td><code>Vida</code></td><td>Guarda pontos de vida, recebe dano, avisa quando chega a zero</td><td>Jogador, inimigos, caixas quebráveis, portas</td></tr><tr><td><code>Ataque</code></td><td>Causa dano em quem entra no alcance</td><td>Inimigos, armadilhas, o herói</td></tr><tr><td><code>Coletavel</code></td><td>Dá um item ao herói ao toque</td><td>Moedas, chaves, poções</td></tr><tr><td><code>Inventario</code></td><td>Guarda o que o herói carregou</td><td>Jogador</td></tr></table>
+<p>Uma armadilha de espinhos tem <code>Ataque</code> mas não precisa de <code>Vida</code>. Uma caixa quebrável tem <code>Vida</code> mas não ataca. O herói tem os dois. Nenhuma herança foi necessária.</p></section>
+
+<section id="vida"><h2>O componente Vida</h2>
+<p>Para que qualquer coisa possa levar dano sem saber quem a atingiu, defina um contrato com uma <strong>interface</strong>:</p>
+<span class="file">IDanificavel.cs</span>
+<pre><code><span class="k">public</span> <span class="k">interface</span> IDanificavel
+{
+    <span class="k">void</span> ReceberDano(<span class="k">int</span> dano);
+}</code></pre>
+<span class="file">Vida.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.Events;
+
+<span class="k">public</span> <span class="k">class</span> Vida : MonoBehaviour, IDanificavel
+{
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> vidaMaxima = 3;
+
+    <span class="k">public</span> <span class="k">int</span> Atual { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> Maxima =&gt; vidaMaxima;
+
+    <span class="k">public</span> UnityEvent aoMudar;
+    <span class="k">public</span> UnityEvent aoMorrer;
+
+    <span class="k">void</span> Awake() =&gt; Atual = vidaMaxima;
+
+    <span class="k">public</span> <span class="k">void</span> ReceberDano(<span class="k">int</span> dano)
+    {
+        <span class="k">if</span> (Atual &lt;= 0) <span class="k">return</span>;
+
+        Atual = Mathf.Max(0, Atual - dano);
+        aoMudar?.Invoke();
+        <span class="k">if</span> (Atual == 0) aoMorrer?.Invoke();
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Curar(<span class="k">int</span> quantidade)
+    {
+        Atual = Mathf.Min(vidaMaxima, Atual + quantidade);
+        aoMudar?.Invoke();
+    }
+}</code></pre>
+<p>Os <strong>UnityEvents</strong> aparecem no Inspector. Em <code>aoMorrer</code>, arraste o objeto e escolha o que acontece: destruir, tocar um som, abrir uma porta. O designer da equipe configura sem tocar no código. No módulo 9, você verá como fazer isso com o padrão Observer, por código.</p>
+<div class="steps"><div class="step"><h3>Refatore o Inimigo</h3><p>Na classe <code>Inimigo</code> do módulo 5, remova <code>vidaMaxima</code>, <code>vidaAtual</code> e o método <code>ReceberDano</code>. Adicione <code>[RequireComponent(typeof(Vida))]</code> sobre a classe. No inspector, configure <code>aoMorrer</code> do componente <code>Vida</code> para chamar a destruição do objeto. A vida passou a ser peça reutilizável.</div><div class="step"><h3>Dê vida ao herói</h3><p>Adicione o componente <code>Vida</code> ao <code>Jogador</code> com 5 de vida máxima. O contador de vida da interface pode ser atualizado ligando o evento <code>aoMudar</code>.</div></div></section>
+
+<section id="ataque"><h2>Ataque por componente</h2>
+<span class="file">Ataque.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Ataque : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> dano = 1;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> intervalo = 1f;
+    [SerializeField] <span class="k">private</span> LayerMask alvos;
+
+    <span class="k">private</span> <span class="k">float</span> proximoAtaque;
+
+    <span class="k">void</span> OnTriggerStay(Collider outro)
+    {
+        <span class="k">if</span> (Time.time &lt; proximoAtaque) <span class="k">return</span>;
+        <span class="k">if</span> ((alvos.value &amp; (1 &lt;&lt; outro.gameObject.layer)) == 0) <span class="k">return</span>;
+
+        <span class="k">if</span> (outro.TryGetComponent(<span class="k">out</span> IDanificavel alvo))
+        {
+            alvo.ReceberDano(dano);
+            proximoAtaque = Time.time + intervalo;
+        }
+    }
+}</code></pre>
+<p>Coloque o <code>Ataque</code> em um objeto com collider <em>Is Trigger</em> em volta do inimigo, de uma armadilha ou da espada do herói. O código não pergunta "é jogador? é inimigo?": pergunta apenas "isso pode ser danificado?". <code>TryGetComponent</code> procura o componente sem gerar erro quando ele não existe.</p>
+<div class="check"><strong>Checkpoint:</strong> o slime perto do herói reduz a vida dele a cada segundo, uma armadilha com o mesmo componente faz o mesmo e a vida do herói zera uma única vez.</div></section>
+
+<section id="dados"><h2>Itens descritos por dados: ScriptableObject</h2>
+<p>O som de coleta também passa a vir do item: o <code>SomColeta</code> do módulo 4 pode ser removido, e cada <code>ItemDados</code> aponta para o próprio clipe. Hoje o <code>Coletavel</code> usa um <code>enum</code> com dois tipos. Para adicionar uma poção de cura, você teria que editar o código. Um <strong>ScriptableObject</strong> guarda dados em arquivo, e cada item novo é um arquivo novo.</p>
+<span class="file">ItemDados.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+[CreateAssetMenu(fileName = <span class="s">"NovoItem"</span>, menuName = <span class="s">"Masmorra/Item"</span>)]
+<span class="k">public</span> <span class="k">class</span> ItemDados : ScriptableObject
+{
+    <span class="k">public</span> <span class="k">string</span> nome = <span class="s">"Moeda"</span>;
+    <span class="k">public</span> Sprite icone;
+    <span class="k">public</span> <span class="k">int</span> valor = 1;
+    <span class="k">public</span> <span class="k">bool</span> curaVida;
+    <span class="k">public</span> <span class="k">bool</span> abrePorta;
+    <span class="k">public</span> AudioClip som;
+}</code></pre>
+<span class="file">Coletavel.cs (nova versão)</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Coletavel : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> ItemDados dados;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidadeGiro = 90f;
+
+    <span class="k">void</span> Update()
+    {
+        transform.Rotate(Vector3.up, velocidadeGiro * Time.deltaTime, Space.World);
+    }
+
+    <span class="k">void</span> OnTriggerEnter(Collider outro)
+    {
+        <span class="k">if</span> (!outro.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+
+        <span class="k">if</span> (dados.curaVida &amp;&amp; outro.TryGetComponent(<span class="k">out</span> Vida vida))
+            vida.Curar(dados.valor);
+
+        <span class="k">if</span> (outro.TryGetComponent(<span class="k">out</span> Inventario inventario))
+            inventario.Adicionar(dados);
+
+        <span class="k">if</span> (dados.som != <span class="k">null</span>)
+            AudioSource.PlayClipAtPoint(dados.som, transform.position);
+
+        Destroy(gameObject);
+    }
+}</code></pre>
+<span class="file">Inventario.cs (nova versão)</span>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Inventario : MonoBehaviour
+{
+    <span class="k">private</span> <span class="k">readonly</span> Dictionary&lt;ItemDados, <span class="k">int</span>&gt; itens = <span class="k">new</span> Dictionary&lt;ItemDados, <span class="k">int</span>&gt;();
+
+    <span class="k">public</span> <span class="k">int</span> Quantidade(ItemDados item) =&gt; itens.TryGetValue(item, <span class="k">out</span> <span class="k">int</span> n) ? n : 0;
+
+    <span class="k">public</span> <span class="k">void</span> Adicionar(ItemDados item)
+    {
+        itens[item] = Quantidade(item) + 1;
+        Debug.Log($<span class="s">"{item.nome}: {itens[item]}"</span>);
+    }
+
+    <span class="k">public</span> <span class="k">bool</span> UsarItemQueAbrePorta()
+    {
+        <span class="k">foreach</span> (<span class="k">var</span> par <span class="k">in</span> itens)
+        {
+            <span class="k">if</span> (par.Key.abrePorta &amp;&amp; par.Value &gt; 0)
+            {
+                itens[par.Key] = par.Value - 1;
+                <span class="k">return</span> <span class="k">true</span>;
+            }
+        }
+        <span class="k">return</span> <span class="k">false</span>;
+    }
+}</code></pre>
+<div class="steps"><div class="step"><h3>Crie os itens</h3><p>Clique com o botão direito em <code>Assets/Dados</code> e escolha <code>Create &gt; Masmorra &gt; Item</code>. Crie <code>Moeda</code>, <code>Chave</code> e <code>PocaoDeCura</code>, cada uma com nome, ícone (sua pixel art da Atividade 06) e valor.</div><div class="step"><h3>Atualize os prefabs</h3><p>Em cada prefab coletável, arraste o arquivo de dados correspondente. A <code>Porta</code> do módulo 3 passa a chamar <code>UsarItemQueAbrePorta()</code> no lugar de <code>UsarChave()</code>.</div><div class="step"><h3>Crie um item sem programar</h3><p>Crie uma <em>Poção Grande</em> com valor 3, duplique o prefab da poção, troque o dado e coloque na cena. Nenhuma linha de código foi alterada.</p></div></div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>pelo menos 3 componentes reutilizáveis independentes no jogo da equipe (por exemplo, Vida, Ataque e um de mecânica própria);</li><li>uma interface que permita tratar objetos diferentes do mesmo modo;</li><li>pelo menos 4 itens definidos como ScriptableObject, um deles com efeito diferente dos demais;</li><li>um evento configurado pelo Inspector ligando dois componentes.</li></ul>
+<p>As instruções completas estão na Atividade Prática C06.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>A vida do inimigo não diminui ao ser atacado</summary><div><p>O <code>Ataque</code> só funciona se o alvo tem collider, a camada está em <code>alvos</code> e o objeto tem um componente que implementa <code>IDanificavel</code>. Veja também se o collider do <code>Ataque</code> está como <em>Is Trigger</em>.</p></div></details><details><summary>O ScriptableObject não aparece no menu Create</summary><div><p>O arquivo precisa ter o mesmo nome da classe e a linha <code>[CreateAssetMenu]</code> logo acima dela. Verifique se não há erros no Console.</p></div></details><details><summary>Os dados do item voltam ao normal ao parar o jogo</summary><div><p>Alterações em objetos da cena durante o Play são perdidas, mas alterações em arquivos <code>ScriptableObject</code> são mantidas. Se o item perdeu o valor, você alterou o objeto da cena e não o arquivo.</p></div></details><details><summary>Mensagem de erro de referência nula no <code>Coletavel</code></summary><div><p>O campo <code>dados</code> está vazio no prefab. Arraste o arquivo de dados para o Inspector.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC06_Componentes_Dados.pdf" download>Baixar Atividade Prática C06 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-05.html">← Módulo 05: Herança e POO</a><span></span></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

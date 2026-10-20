@@ -1,0 +1,124 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 05 · Herança e programação orientada a objetos</title><meta name="description" content="Programação orientada a objetos em C# para Unity: classes, encapsulamento, herança, classes abstratas e polimorfismo.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 05 de 12 · 15h</span></div>
+<header class="hero"><h1>Herança e programação orientada a objetos</h1><p>Você organiza o código dos inimigos com classes, herança e polimorfismo, de modo que adicionar um novo monstro não exija reescrever o jogo.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#conceitos">Os quatro pilares, na prática</a></li><li><a href="#base">A classe-base</a></li><li><a href="#filhos">Dois monstros, uma base</a></li><li><a href="#polimorfismo">Polimorfismo em ação</a></li><li><a href="#heranca-ruim">Quando a herança atrapalha</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você viu que um bom projeto 3D reaproveita partes: um modelo-base que ganha variações, materiais compartilhados, objetos instanciados. A programação orientada a objetos aplica a mesma ideia ao código: uma classe-base descreve o que todo inimigo tem, e cada monstro acrescenta o que o torna único.</p>
+<div class="note"><strong>Dica de produção.</strong> Slime e esqueleto, no kit, são dois modelos com comportamentos diferentes. Se você criou criaturas no Blender, escolha duas que se comportem de modo distinto, como uma lenta e resistente e outra rápida e frágil.</div></section>
+
+<section id="conceitos"><h2>Os quatro pilares, na prática</h2>
+<table><tr><th>Pilar</th><th>Ideia</th><th>No jogo</th></tr><tr><td>Encapsulamento</td><td>Esconder os dados e expor só o necessário</td><td>A vida é privada: só se altera chamando <code>ReceberDano</code></td></tr><tr><td>Herança</td><td>Uma classe reaproveita outra</td><td><code>Slime</code> e <code>Esqueleto</code> herdam de <code>Inimigo</code></td></tr><tr><td>Polimorfismo</td><td>Mesma chamada, comportamento diferente</td><td><code>inimigo.Atacar()</code> faz coisas distintas em cada tipo</td></tr><tr><td>Abstração</td><td>Declarar o que deve existir sem dizer como</td><td><code>Atacar</code> é obrigatório, mas cada inimigo define o seu</td></tr></table>
+<p>Em C#, <code>abstract</code> marca uma classe (ou método) que não pode ser usada sozinha. <code>virtual</code> permite que filhos substituam um método, e <code>override</code> é a substituição. <code>protected</code> deixa o filho acessar um campo, sem expô-lo ao resto do jogo.</p></section>
+
+<section id="base"><h2>A classe-base</h2>
+<p>Antes de escrever, responda: o que todo inimigo faz? Todo inimigo tem vida, recebe dano, morre e ataca. A diferença está em <em>como</em> ataca.</p>
+<span class="file">Inimigo.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">abstract</span> <span class="k">class</span> Inimigo : MonoBehaviour
+{
+    [SerializeField] <span class="k">protected</span> <span class="k">int</span> vidaMaxima = 3;
+    [SerializeField] <span class="k">protected</span> <span class="k">float</span> velocidade = 2f;
+
+    <span class="k">protected</span> <span class="k">int</span> vidaAtual;
+
+    <span class="k">protected</span> <span class="k">virtual</span> <span class="k">void</span> Awake()
+    {
+        vidaAtual = vidaMaxima;
+    }
+
+    <span class="k">public</span> <span class="k">void</span> ReceberDano(<span class="k">int</span> dano)
+    {
+        vidaAtual = Mathf.Max(0, vidaAtual - dano);
+        <span class="k">if</span> (vidaAtual == 0) Morrer();
+    }
+
+    <span class="k">protected</span> <span class="k">virtual</span> <span class="k">void</span> Morrer()
+    {
+        Destroy(gameObject);
+    }
+
+    <span class="k">public</span> <span class="k">abstract</span> <span class="k">void</span> Atacar(Transform alvo);
+}</code></pre>
+<p><code>ReceberDano</code> não é <code>virtual</code> de propósito: a regra de que a vida não passa de zero é igual para todos e não deve ser quebrada por um filho.</p></section>
+
+<section id="filhos"><h2>Dois monstros, uma base</h2>
+<span class="file">Slime.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Slime : Inimigo
+{
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> danoDeContato = 1;
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> Atacar(Transform alvo)
+    {
+        <span class="c">// O dano real ao jogador chega no módulo 6; por ora, apenas registramos</span>
+        Debug.Log($<span class="s">"{name} esmaga {alvo.name} causando {danoDeContato} de dano"</span>);
+    }
+}</code></pre>
+<span class="file">Esqueleto.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Esqueleto : Inimigo
+{
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> danoDaEspada = 2;
+    [SerializeField] <span class="k">private</span> GameObject chavePrefab;
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> Atacar(Transform alvo)
+    {
+        Debug.Log($<span class="s">"{name} golpeia {alvo.name} com a espada: {danoDaEspada} de dano"</span>);
+    }
+
+    <span class="k">protected</span> <span class="k">override</span> <span class="k">void</span> Morrer()
+    {
+        <span class="c">// Esqueletos deixam uma chave ao morrer; depois, o comportamento comum</span>
+        <span class="k">if</span> (chavePrefab != <span class="k">null</span>)
+            Instantiate(chavePrefab, transform.position, Quaternion.identity);
+
+        <span class="k">base</span>.Morrer();
+    }
+}</code></pre>
+<p>Repare no <code>base.Morrer()</code>: o esqueleto acrescenta um comportamento e depois reaproveita o da classe-base, sem copiar código. Quando você mudar o que acontece ao morrer em <code>Inimigo</code> (som, partículas), todos herdam a mudança.</p></section>
+
+<section id="polimorfismo"><h2>Polimorfismo em ação</h2>
+<p>O ganho aparece quando alguém usa o inimigo sem saber qual é o tipo. Este gerenciador controla qualquer monstro:</p>
+<span class="file">GerenteDeSala.cs</span>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> GerenteDeSala : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform jogador;
+    [SerializeField] <span class="k">private</span> List&lt;Inimigo&gt; inimigos = <span class="k">new</span> List&lt;Inimigo&gt;();
+
+    [ContextMenu(<span class="s">"Todos atacam"</span>)]
+    <span class="k">private</span> <span class="k">void</span> TodosAtacam()
+    {
+        <span class="k">foreach</span> (Inimigo inimigo <span class="k">in</span> inimigos)
+        {
+            <span class="k">if</span> (inimigo != <span class="k">null</span>) inimigo.Atacar(jogador);
+        }
+    }
+}</code></pre>
+<div class="steps"><div class="step"><h3>Monte uma sala de teste</h3><p>Crie dois inimigos: um com <code>Slime</code> e outro com <code>Esqueleto</code>, cada um com o modelo do kit (ou o seu). Arraste ambos para a lista <code>inimigos</code> do <code>GerenteDeSala</code> e o <code>Jogador</code> para o campo correspondente.</div><div class="step"><h3>Dispare pelo menu</h3><p>Clique com o botão direito no componente <code>GerenteDeSala</code> e escolha <em>Todos atacam</em>. O Console mostra mensagens diferentes para cada tipo, mesmo com a mesma chamada <code>Atacar</code>.</div><div class="step"><h3>Aperfeiçoe</h3><p>Crie um terceiro monstro herdando de <code>Inimigo</code> (um morcego, uma aranha, um golem). Quantas linhas do <code>GerenteDeSala</code> você precisou mudar? A resposta certa é zero.</div></div>
+<div class="check"><strong>Checkpoint:</strong> a lista aceita os três tipos de inimigo, o Console mostra um ataque diferente para cada um e o esqueleto deixa uma chave ao morrer.</div></section>
+
+<section id="heranca-ruim"><h2>Quando a herança atrapalha</h2>
+<p>Herança funciona bem para "é um": um slime <em>é um</em> inimigo. Mas ela fica rígida quando as combinações crescem. E se você quiser um inimigo que voa <strong>e</strong> atira, outro que voa e não atira, outro que anda e atira? Criar <code>InimigoVoadorAtirador</code> e <code>InimigoVoadorPacifico</code> multiplica classes.</p>
+<p>Esse problema é resolvido no próximo módulo, com <strong>composição</strong>: em vez de herdar, o objeto recebe componentes (<em>Vida</em>, <em>Voo</em>, <em>Ataque à Distância</em>). A Unity é construída nessa ideia. Domine as duas formas e escolha a certa para cada caso.</p></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>uma classe-base abstrata para os personagens ou objetos adversários do jogo da equipe;</li><li>pelo menos 3 classes filhas com comportamentos distintos, sendo uma delas sobrescrevendo um método <code>virtual</code> e chamando <code>base</code>;</li><li>uma classe que usa todos os filhos por meio da classe-base;</li><li>diagrama de classes atualizado no repositório.</li></ul>
+<p>As instruções completas estão na Atividade Prática C05.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>Erro: não é possível criar instância de classe abstrata</summary><div><p>Você tentou usar <code>new Inimigo()</code> ou adicionar <code>Inimigo</code> a um objeto. Classes abstratas só servem de base: adicione o <code>Slime</code> ou o <code>Esqueleto</code>.</p></div></details><details><summary>Erro: o filho não implementa o membro abstrato</summary><div><p>Todo método <code>abstract</code> precisa de um <code>override</code> em cada filho. Confira o nome e os parâmetros.</p></div></details><details><summary>O <code>Awake</code> do filho substitui o da base e a vida fica em zero</summary><div><p>Se o filho declarar o próprio <code>Awake</code>, use <code>protected override void Awake()</code> e chame <code>base.Awake()</code> na primeira linha.</p></div></details><details><summary>A lista do gerenciador aparece vazia no Inspector</summary><div><p>O campo precisa ser <code>[SerializeField] private List&lt;Inimigo&gt;</code> e os objetos arrastados devem ter um componente que herda de <code>Inimigo</code>.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC05_Heranca_POO.pdf" download>Baixar Atividade Prática C05 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-04.html">← Módulo 04: Assets e animação</a><a href="modulo-06.html">Módulo 06: Componentes →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

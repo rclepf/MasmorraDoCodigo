@@ -1,0 +1,132 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 02 · Fazendo o herói se mover</title><meta name="description" content="Movimento em 3D com CharacterController, Input System e câmera de terceira pessoa em Unity e C#.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 02 de 12 · 15h</span></div>
+<header class="hero"><h1>Fazendo o herói se mover</h1><p>Você transforma entradas de teclado e controle em movimento 3D, faz o herói girar para onde anda e posiciona uma câmera que o acompanha.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#espaco">Como a Unity entende o espaço 3D</a></li><li><a href="#input">Lendo teclado e controle</a></li><li><a href="#movimento">O script de movimento</a></li><li><a href="#camera">Câmera que acompanha o herói</a></li><li><a href="#depurar">Enxergando o que o código calcula</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>O herói que você vai mover pode ser o seu personagem do Blender, com a escala e a origem corrigidas nas Atividades 11 e 12. Quem não tiver um personagem usa o <code>Player</code> do kit, que tem cerca de 2 metros de altura.</p>
+<div class="note"><strong>Origem do modelo importa.</strong> Se o ponto de origem do seu modelo estiver no centro do corpo e não nos pés, ele vai afundar ou flutuar no chão. Corrija no Blender com <em>Set Origin</em> e exporte de novo.</div></section>
+
+<section id="espaco"><h2>Como a Unity entende o espaço 3D</h2>
+<p>A Unity usa o eixo <strong>Y para cima</strong>, <strong>Z para frente</strong> e <strong>X para a direita</strong>. É um sistema de coordenadas diferente do Blender, que usa Z para cima. O importador converte isso na maioria dos casos, mas é a origem de modelos "deitados".</p>
+<table><tr><th>Conceito</th><th>O que é</th><th>Exemplo</th></tr><tr><td>Vector3</td><td>Três números (x, y, z) que representam posição, direção ou velocidade</td><td><code>new Vector3(0, 0, 1)</code> aponta para frente</td></tr><tr><td>Transform</td><td>Posição, rotação e escala de todo objeto</td><td><code>transform.position</code></td></tr><tr><td>Espaço local x mundial</td><td>Local é relativo ao objeto pai; mundial é relativo à cena</td><td><code>transform.forward</code> é a frente local em coordenadas do mundo</td></tr><tr><td>Time.deltaTime</td><td>Segundos desde o quadro anterior</td><td>Multiplique por ele para o movimento não depender da taxa de quadros</td></tr></table>
+<p>Sem <code>Time.deltaTime</code>, um jogo a 120 quadros por segundo moveria o herói duas vezes mais rápido que a 60. Esse é um erro clássico em jogos.</p></section>
+
+<section id="input"><h2>Lendo teclado e controle</h2>
+<p>A Unity moderna usa o pacote <strong>Input System</strong>. Em projetos novos ele já vem instalado. Confira em <code>Window &gt; Package Manager &gt; In Project</code>. Se o projeto estiver usando o sistema antigo, vá em <code>Edit &gt; Project Settings &gt; Player &gt; Active Input Handling</code> e selecione <em>Input System Package (New)</em> ou <em>Both</em>.</p>
+<p>Uma <strong>InputAction</strong> descreve uma ação do jogador ("mover") e quais controles a disparam. Nesta aula ela é criada por código, para você enxergar tudo em um só arquivo:</p>
+<span class="file">trecho: criando a ação de movimento</span>
+<pre><code>InputAction mover = <span class="k">new</span> InputAction(<span class="s">"Mover"</span>, InputActionType.Value);
+mover.AddCompositeBinding(<span class="s">"2DVector"</span>)
+     .With(<span class="s">"Up"</span>, <span class="s">"&lt;Keyboard&gt;/w"</span>).With(<span class="s">"Down"</span>, <span class="s">"&lt;Keyboard&gt;/s"</span>)
+     .With(<span class="s">"Left"</span>, <span class="s">"&lt;Keyboard&gt;/a"</span>).With(<span class="s">"Right"</span>, <span class="s">"&lt;Keyboard&gt;/d"</span>);
+mover.AddBinding(<span class="s">"&lt;Gamepad&gt;/leftStick"</span>);</code></pre>
+<p>O resultado de <code>mover.ReadValue&lt;Vector2&gt;()</code> é um vetor com valores de -1 a 1: W e S alteram o Y, A e D alteram o X. O mesmo código aceita o analógico esquerdo do controle.</p></section>
+
+<section id="movimento"><h2>O script de movimento</h2>
+<div class="steps"><div class="step"><h3>Monte o herói</h3><p>Crie um objeto vazio chamado <code>Jogador</code> na posição (0, 0, 0) e coloque o modelo do herói como filho dele. Adicione ao <code>Jogador</code> o componente <code>CharacterController</code> com <em>Height</em> 2, <em>Radius</em> 0.35 e <em>Center</em> (0, 1, 0). Coloque a tag <code>Player</code> no objeto.</div><div class="step"><h3>Crie o script</h3><p>Em <code>Assets/Scripts</code>, crie <code>PlayerMovement</code>, anexe ao <code>Jogador</code> e cole o código abaixo.</p></div></div>
+<span class="file">PlayerMovement.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.InputSystem;
+
+[RequireComponent(typeof(CharacterController))]
+<span class="k">public</span> <span class="k">class</span> PlayerMovement : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidade = 5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> suavizacaoGiro = 12f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> gravidade = -20f;
+
+    <span class="k">private</span> CharacterController controle;
+    <span class="k">private</span> Transform cam;
+    <span class="k">private</span> InputAction mover;
+    <span class="k">private</span> <span class="k">float</span> velocidadeVertical;
+
+    <span class="k">void</span> Awake()
+    {
+        controle = GetComponent&lt;CharacterController&gt;();
+        cam = Camera.main.transform;
+
+        mover = <span class="k">new</span> InputAction(<span class="s">"Mover"</span>, InputActionType.Value);
+        mover.AddCompositeBinding(<span class="s">"2DVector"</span>)
+             .With(<span class="s">"Up"</span>, <span class="s">"&lt;Keyboard&gt;/w"</span>).With(<span class="s">"Down"</span>, <span class="s">"&lt;Keyboard&gt;/s"</span>)
+             .With(<span class="s">"Left"</span>, <span class="s">"&lt;Keyboard&gt;/a"</span>).With(<span class="s">"Right"</span>, <span class="s">"&lt;Keyboard&gt;/d"</span>);
+        mover.AddBinding(<span class="s">"&lt;Gamepad&gt;/leftStick"</span>);
+    }
+
+    <span class="k">void</span> OnEnable() =&gt; mover.Enable();
+    <span class="k">void</span> OnDisable() =&gt; mover.Disable();
+
+    <span class="k">void</span> Update()
+    {
+        Vector2 entrada = mover.ReadValue&lt;Vector2&gt;();
+
+        <span class="c">// Direções da câmera projetadas no chão: W anda para onde a câmera olha</span>
+        Vector3 frente = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+        Vector3 direita = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+        Vector3 direcao = Vector3.ClampMagnitude(frente * entrada.y + direita * entrada.x, 1f);
+
+        <span class="c">// Gravidade simples</span>
+        <span class="k">if</span> (controle.isGrounded &amp;&amp; velocidadeVertical &lt; 0f) velocidadeVertical = -2f;
+        velocidadeVertical += gravidade * Time.deltaTime;
+
+        Vector3 movimento = direcao * velocidade + Vector3.up * velocidadeVertical;
+        controle.Move(movimento * Time.deltaTime);
+
+        <span class="c">// Gira suavemente para a direção do movimento</span>
+        <span class="k">if</span> (direcao.sqrMagnitude &gt; 0.01f)
+        {
+            Quaternion alvo = Quaternion.LookRotation(direcao);
+            transform.rotation = Quaternion.Slerp(transform.rotation, alvo, suavizacaoGiro * Time.deltaTime);
+        }
+    }
+}</code></pre>
+<p><code>Vector3.ClampMagnitude</code> impede que andar na diagonal seja mais rápido: sem ele, W + D produz um vetor de comprimento 1,41. O <code>-2f</code> mantém o herói colado ao chão em rampas e degraus.</p></section>
+
+<section id="camera"><h2>Câmera que acompanha o herói</h2>
+<p>Câmeras devem se mover depois do personagem, no mesmo quadro. Por isso o código usa <code>LateUpdate</code>, que roda depois de todos os <code>Update</code>. Se a câmera for atualizada antes, a imagem treme.</p>
+<span class="file">CameraSeguir.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> CameraSeguir : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform alvo;
+    [SerializeField] <span class="k">private</span> Vector3 deslocamento = <span class="k">new</span> Vector3(0f, 6f, -7f);
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> suavizacao = 8f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> alturaDoOlhar = 1.5f;
+
+    <span class="k">void</span> LateUpdate()
+    {
+        <span class="k">if</span> (alvo == <span class="k">null</span>) <span class="k">return</span>;
+
+        Vector3 desejada = alvo.position + deslocamento;
+        transform.position = Vector3.Lerp(transform.position, desejada, suavizacao * Time.deltaTime);
+        transform.LookAt(alvo.position + Vector3.up * alturaDoOlhar);
+    }
+}</code></pre>
+<div class="steps"><div class="step"><h3>Anexe e configure</h3><p>Anexe o script à <code>Main Camera</code> e arraste o <code>Jogador</code> para o campo <em>Alvo</em>. Aperte Play e ande pela sala. Ajuste <code>deslocamento</code> no Inspector enquanto o jogo roda para achar o enquadramento que você prefere. Valores alterados no Play Mode voltam ao normal ao parar: anote os bons.</div><div class="step"><h3>Teste os limites</h3><p>Tente andar na diagonal, soltar as teclas e mudar rápido de direção. Observe se o giro está brusco ou lento demais e ajuste <code>suavizacaoGiro</code>.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> o herói anda em qualquer direção relativa à câmera, gira suavemente, não atravessa o chão e a câmera o acompanha sem tremer.</div></section>
+
+<section id="depurar"><h2>Enxergando o que o código calcula</h2>
+<p>Valores como direção e velocidade são invisíveis. Para depurar movimento, desenhe-os na cena. Acrescente este método ao <code>PlayerMovement</code>:</p>
+<span class="file">trecho: dentro de PlayerMovement</span>
+<pre><code><span class="k">void</span> OnDrawGizmosSelected()
+{
+    Gizmos.color = Color.cyan;
+    Gizmos.DrawRay(transform.position + Vector3.up, transform.forward * 2f);
+}</code></pre>
+<p>Com o <code>Jogador</code> selecionado, a aba Scene mostra uma linha ciano para onde ele está virado. Para valores que mudam a cada quadro, use <code>Debug.DrawRay</code> dentro do <code>Update</code> e olhe a Scene durante o Play.</p></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>herói e câmera funcionando no jogo da equipe, com os dois scripts versionados no Git;</li><li>uma mecânica extra de movimento ligada à mecânica escolhida (pulo, agachar, correr ou outra), com valores ajustáveis no Inspector;</li><li>commit com mensagem clara para cada script.</li></ul>
+<p>As instruções completas estão na Atividade Prática C02.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>Mensagem de erro sobre <code>Input</code> ou <code>InputSystem</code> no Console</summary><div><p>Falta o pacote Input System ou o <em>Active Input Handling</em> está em Input Manager (Old). Instale o pacote, ajuste a configuração e reinicie a Unity quando ela pedir.</p></div></details><details><summary>O herói cai pelo chão</summary><div><p>O piso não tem colisor. Selecione o modelo do piso, na aba <em>Model</em> marque <em>Generate Colliders</em> e clique em Apply, ou adicione um <em>Box Collider</em> ao objeto.</p></div></details><details><summary>A câmera treme quando ando</summary><div><p>A câmera está sendo movida em <code>Update</code>. Mova em <code>LateUpdate</code>, como no script.</p></div></details><details><summary>O herói anda muito rápido ou muito devagar</summary><div><p>Confira se o movimento está multiplicado por <code>Time.deltaTime</code> e ajuste <code>velocidade</code> no Inspector, não no código.</p></div></details><details><summary>O herói gira para o lado errado ao andar</summary><div><p>O modelo foi exportado do Blender com o eixo da frente errado. No Blender, a frente do modelo deve apontar para -Y e a exportação FBX deve usar Forward = -Z, Up = Y. Corrija e importe de novo.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC02_Movimento_Camera.pdf" download>Baixar Atividade Prática C02 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-01.html">← Módulo 01: Pré-produção</a><a href="modulo-03.html">Módulo 03: Física e colisões →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>
