@@ -52,3 +52,5 @@ footer{border-top:2px solid var(--ink);padding:20px 0 40px;color:var(--soft);fon
 .hero p{max-width:62ch}
 article table{display:block;overflow-x:auto}
 article .assets{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+.diagram{display:block;width:100%;max-width:640px;height:auto;margin:1rem 0;color:var(--ink);background:var(--panel);border:2px solid var(--ink);padding:8px}
+article :not(pre)>code{overflow-wrap:anywhere}

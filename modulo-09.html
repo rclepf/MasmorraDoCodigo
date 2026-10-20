@@ -1,0 +1,159 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 09 · Padrões de projeto para jogos</title><meta name="description" content="Padrões de projeto em Unity e C#: Singleton, Observer com eventos C# e Object Pool com UnityEngine.Pool.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 09 de 12 · 15h</span></div>
+<header class="hero"><h1>Padrões de projeto para jogos</h1><p>Você aprende soluções que programadores já testaram para problemas que se repetem em todo jogo: um gerente único, avisos entre sistemas e objetos reaproveitados.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#visao">Três problemas, três padrões</a></li><li><a href="#singleton">Singleton: uma instância, acesso global</a></li><li><a href="#observer">Observer: avisar sem acoplar</a></li><li><a href="#pool">Object Pool: reaproveitar em vez de criar</a></li><li><a href="#quando">Quando usar cada padrão</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você organizou pastas, nomes e versões dos seus arquivos para que a equipe encontrasse tudo sem perguntar. Padrões de projeto fazem o mesmo com o código: são <strong>receitas de organização</strong> conhecidas por todos, de modo que, ao ler <code>GerenteDeJogo.Instancia</code>, qualquer colega entende a intenção.</p>
+<div class="note"><strong>Dica de produção.</strong> Use padrões para resolver um problema que você já está sentindo, não para enfeitar o projeto. Se o código está simples e funciona, ele está bom.</div></section>
+
+<section id="visao"><h2>Três problemas, três padrões</h2>
+<table><tr><th>Problema</th><th>Padrão</th><th>Exemplo no jogo</th></tr><tr><td>Preciso de um único responsável por pontuação e fase</td><td>Singleton</td><td><code>GerenteDeJogo</code></td></tr><tr><td>Quando algo acontece, vários sistemas precisam saber, sem se conhecerem</td><td>Observer (eventos)</td><td>Moeda coletada atualiza placar, toca som e libera conquista</td></tr><tr><td>Criar e destruir muitas vezes o mesmo objeto deixa o jogo lento</td><td>Object Pool</td><td>Projéteis, partículas, inimigos de horda</td></tr></table></section>
+
+<section id="singleton"><h2>Singleton: uma instância, acesso global</h2>
+<p>O <strong>Singleton</strong> garante que exista só uma cópia de uma classe e oferece um ponto de acesso fácil. É ideal para o que é, por natureza, único no jogo: pontuação, fase atual, estado de pausa.</p>
+<span class="file">GerenteDeJogo.cs</span>
+<pre><code><span class="k">using</span> System;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> GerenteDeJogo : MonoBehaviour
+{
+    <span class="k">public</span> <span class="k">static</span> GerenteDeJogo Instancia { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+
+    <span class="k">public</span> <span class="k">int</span> Pontos { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">event</span> Action&lt;<span class="k">int</span>&gt; AoMudarPontos;
+
+    <span class="k">void</span> Awake()
+    {
+        <span class="c">// Se já existe outro gerente, este é descartado</span>
+        <span class="k">if</span> (Instancia != <span class="k">null</span> &amp;&amp; Instancia != <span class="k">this</span>)
+        {
+            Destroy(gameObject);
+            <span class="k">return</span>;
+        }
+        Instancia = <span class="k">this</span>;
+    }
+
+    <span class="k">void</span> OnDestroy()
+    {
+        <span class="k">if</span> (Instancia == <span class="k">this</span>) Instancia = <span class="k">null</span>;
+    }
+
+    <span class="k">public</span> <span class="k">void</span> AdicionarPontos(<span class="k">int</span> valor)
+    {
+        Pontos += valor;
+        AoMudarPontos?.Invoke(Pontos);
+    }
+}</code></pre>
+<p>Qualquer script agora pode escrever <code>GerenteDeJogo.Instancia.AdicionarPontos(10)</code>, sem arrastar referência no Inspector.</p>
+<div class="note"><strong>Cuidado com o abuso.</strong> O Singleton é conveniente demais: se tudo vira Singleton, o código fica emaranhado e difícil de testar. Reserve-o para poucos gerentes realmente únicos e prefira passar referências nos demais casos.</div></section>
+
+<section id="observer"><h2>Observer: avisar sem acoplar</h2>
+<p>Repare no <code>event Action&lt;int&gt; AoMudarPontos</code> do gerente. Ele é o <strong>Observer</strong>: quem tem interesse se <em>inscreve</em>, e o gerente avisa todos sem saber quem são. O placar, o som e as conquistas podem ser adicionados ou removidos sem alterar o gerente.</p>
+<span class="file">Placar.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Placar : MonoBehaviour
+{
+    <span class="k">private</span> <span class="k">int</span> exibido;
+
+    <span class="k">void</span> OnEnable()
+    {
+        GerenteDeJogo.Instancia.AoMudarPontos += Atualizar;
+        Atualizar(GerenteDeJogo.Instancia.Pontos);
+    }
+
+    <span class="k">void</span> OnDisable()
+    {
+        <span class="k">if</span> (GerenteDeJogo.Instancia != <span class="k">null</span>)
+            GerenteDeJogo.Instancia.AoMudarPontos -= Atualizar;
+    }
+
+    <span class="k">private</span> <span class="k">void</span> Atualizar(<span class="k">int</span> pontos)
+    {
+        exibido = pontos;
+        Debug.Log($<span class="s">"Pontos: {exibido}"</span>);
+    }
+
+    <span class="k">void</span> OnGUI()
+    {
+        GUI.Label(<span class="k">new</span> Rect(16, 16, 200, 30), $<span class="s">"Pontos: {exibido}"</span>);
+    }
+}</code></pre>
+<p>A regra de ouro: <strong>todo <code>+=</code> precisa de um <code>-=</code></strong> no <code>OnDisable</code>. Sem isso, um objeto destruído continua na lista de avisos e o jogo dá erros estranhos.</p>
+<p>Compare com o <code>UnityEvent</code> do módulo 6: o <code>UnityEvent</code> é um Observer configurado pelo Inspector (bom para designers); o <code>event</code> do C# é um Observer configurado pelo código (mais rápido e seguro para sistemas internos).</p>
+<div class="steps"><div class="step"><h3>Conecte o coletável</h3><p>No <code>Coletavel</code> do módulo 6, depois de adicionar o item ao inventário, chame <code>GerenteDeJogo.Instancia.AdicionarPontos(dados.valor)</code>.</p></div><div class="step"><h3>Crie o gerente na cena</h3><p>Crie um objeto vazio <code>Gerente</code> com o componente <code>GerenteDeJogo</code> e outro <code>Interface</code> com o <code>Placar</code>. O gerente precisa existir antes do placar: ajuste a ordem em <em>Edit &gt; Project Settings &gt; Script Execution Order</em> se aparecer erro de referência nula.</p></div><div class="step"><h3>Adicione um segundo ouvinte</h3><p>Crie um script que toca um som a cada 100 pontos, inscrito no mesmo evento. O gerente não muda uma linha: é isso que <em>desacoplado</em> significa.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> coletar itens atualiza o placar e o segundo ouvinte, e o gerente não conhece nenhum dos dois.</div></section>
+
+<section id="pool"><h2>Object Pool: reaproveitar em vez de criar</h2>
+<p>Criar (<code>Instantiate</code>) e destruir (<code>Destroy</code>) objetos o tempo todo gera lixo de memória e pequenos travamentos. O <strong>Object Pool</strong> mantém uma reserva: pede-se um objeto, usa-se, devolve-se à reserva em vez de destruir. A Unity já traz o <code>ObjectPool&lt;T&gt;</code> pronto.</p>
+<span class="file">Projetil.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.Pool;
+
+<span class="k">public</span> <span class="k">class</span> Projetil : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidade = 12f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> tempoDeVida = 2f;
+
+    <span class="k">private</span> IObjectPool&lt;Projetil&gt; pool;
+    <span class="k">private</span> <span class="k">float</span> nascimento;
+
+    <span class="k">public</span> <span class="k">void</span> Configurar(IObjectPool&lt;Projetil&gt; origem) =&gt; pool = origem;
+
+    <span class="k">void</span> OnEnable() =&gt; nascimento = Time.time;
+
+    <span class="k">void</span> Update()
+    {
+        transform.position += transform.forward * velocidade * Time.deltaTime;
+        <span class="k">if</span> (Time.time - nascimento &gt; tempoDeVida) pool.Release(<span class="k">this</span>);
+    }
+}</code></pre>
+<span class="file">Lancador.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.Pool;
+
+<span class="k">public</span> <span class="k">class</span> Lancador : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Projetil prefab;
+    [SerializeField] <span class="k">private</span> Transform bocal;
+
+    <span class="k">private</span> ObjectPool&lt;Projetil&gt; pool;
+
+    <span class="k">void</span> Awake()
+    {
+        pool = <span class="k">new</span> ObjectPool&lt;Projetil&gt;(
+            createFunc: () =&gt; { <span class="k">var</span> p = Instantiate(prefab); p.Configurar(pool); <span class="k">return</span> p; },
+            actionOnGet: p =&gt; p.gameObject.SetActive(<span class="k">true</span>),
+            actionOnRelease: p =&gt; p.gameObject.SetActive(<span class="k">false</span>),
+            actionOnDestroy: p =&gt; { <span class="k">if</span> (p != <span class="k">null</span>) Destroy(p.gameObject); },
+            defaultCapacity: 10, maxSize: 50);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Disparar()
+    {
+        Projetil p = pool.Get();
+        p.transform.SetPositionAndRotation(bocal.position, bocal.rotation);
+    }
+}</code></pre>
+<p>Repare no <code>if (p != null)</code> ao destruir: ao sair do Play Mode a Unity esvazia o pool e os objetos já podem ter sido destruídos; sem essa guarda, o Console mostra um erro de referência perdida.</p>
+<p>Os quatro parâmetros contam a vida do objeto: <em>criar</em> quando a reserva está vazia, <em>ativar</em> ao pedir, <em>desativar</em> ao devolver e <em>destruir</em> se a reserva estourar o limite. Use o <strong>Profiler</strong> (<em>Window &gt; Analysis &gt; Profiler</em>) para comparar: com o pool, a coluna <em>GC Alloc</em> fica próxima de zero.</p>
+<div class="check"><strong>Checkpoint:</strong> disparar 200 projéteis em sequência não cria mais de 50 objetos na Hierarchy, e o Profiler mostra pouca alocação de memória.</div></section>
+
+<section id="quando"><h2>Quando usar cada padrão</h2>
+<table><tr><th>Mecânica</th><th>Padrão mais útil</th></tr><tr><td>Plataforma</td><td>Observer: moedas, checkpoints e vidas avisando a interface</td></tr><tr><td>Stealth</td><td>Observer: um guarda que vê o herói avisa os outros guardas</td></tr><tr><td>Survival</td><td>Object Pool: hordas de inimigos e partículas</td></tr><tr><td>Corrida</td><td>Singleton: gerente de volta, tempo e posição</td></tr><tr><td>Puzzle</td><td>Observer: um botão avisa todas as portas ligadas a ele</td></tr></table></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>um gerente único (Singleton) com pontuação ou estado da fase;</li><li>pelo menos dois sistemas diferentes inscritos em um evento, sem o gerente conhecê-los;</li><li>um Object Pool aplicado a um objeto que se repete no jogo;</li><li>um print do Profiler comparando o jogo com e sem o pool;</li><li>um parágrafo explicando por que cada padrão foi (ou não foi) usado.</li></ul>
+<p>As instruções completas estão na Atividade Prática C09.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>NullReferenceException em GerenteDeJogo.Instancia</summary><div><p>O placar acordou antes do gerente. Garanta que o gerente exista na cena e ajuste a ordem de execução, ou inscreva-se no <code>Start</code> em vez de <code>OnEnable</code>.</p></div></details><details><summary>Aparecem dois gerentes na cena</summary><div><p>O <code>Destroy</code> do segundo só ocorre no <code>Awake</code>. Se ele estiver em cenas diferentes, mantenha um só na cena inicial.</p></div></details><details><summary>Erros depois de destruir um objeto inscrito no evento</summary><div><p>Faltou o <code>-=</code> no <code>OnDisable</code>. Todo <code>+=</code> precisa ter o seu par.</p></div></details><details><summary>O projétil reaparece no lugar antigo</summary><div><p>No <code>OnEnable</code>, reinicie o estado (tempo de nascimento, velocidade). Objetos reaproveitados guardam o que tinham ao ser devolvidos.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC09_Padroes_Projeto.pdf" download>Baixar Atividade Prática C09 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-08.html">← Módulo 08: Grafos e NavMesh</a><span></span></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

@@ -1,0 +1,144 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 07 · Árvores de decisão e IA de inimigos</title><meta name="description" content="Inteligência artificial para jogos em Unity: árvores de decisão, máquina de estados finitos, percepção por distância, ângulo de visão e Raycast.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 07 de 12 · 15h</span></div>
+<header class="hero"><h1>Árvores de decisão e IA de inimigos</h1><p>Você ensina os inimigos a decidir: vigiar, perceber o herói, perseguir, atacar e desistir, usando uma máquina de estados simples e sensores baseados em física.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#arvore">Decisões como árvore</a></li><li><a href="#estados">Máquina de estados finitos</a></li><li><a href="#montagem">Montando a sala de teste</a></li><li><a href="#design">IA que o jogador entende</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você planejou cenas e personagens com <em>intenção</em>: o esqueleto guarda a sala do tesouro, o slime vive no corredor úmido. Agora essa intenção vira regra. Um bom inimigo não é só um modelo animado; é um modelo que <strong>toma decisões</strong> que o jogador consegue ler e prever.</p>
+<div class="note"><strong>Dica de produção.</strong> Desenhe no papel, antes de programar, o que seu monstro faz quando está calmo, quando vê o herói e quando perde o herói de vista. Se você não consegue explicar em três frases, o código também não vai ficar claro.</div></section>
+
+<section id="arvore"><h2>Decisões como árvore</h2>
+<p>Uma <strong>árvore de decisão</strong> é uma sequência de perguntas de sim ou não que termina em uma ação. Ela é a forma mais simples de IA e resolve muito do que um jogo precisa:</p>
+<table><tr><th>Pergunta</th><th>Se sim</th><th>Se não</th></tr><tr><td>O herói está no alcance de ataque?</td><td>Atacar</td><td>próxima pergunta</td></tr><tr><td>O herói está no campo de visão e sem parede no caminho?</td><td>Perseguir</td><td>próxima pergunta</td></tr><tr><td>Perdi o herói de vista há mais de 3 segundos?</td><td>Voltar ao posto</td><td>Continuar a patrulha</td></tr></table>
+<p>A ordem das perguntas é uma decisão de design: colocar o ataque primeiro faz o inimigo ser agressivo; colocar a visão primeiro o faz cauteloso. Mudar a ordem muda a personalidade do monstro sem mudar nenhum modelo.</p></section>
+
+<section id="estados"><h2>Máquina de estados finitos</h2>
+<p>A árvore diz <em>o que decidir</em>; a <strong>máquina de estados</strong> (FSM, de <em>finite state machine</em>) guarda <em>em que situação o inimigo está</em>. Em cada instante ele está em um só estado e as transições entre estados seguem as regras da árvore.</p>
+<svg class="diagram" viewBox="0 0 640 170" role="img" aria-label="Estados Patrulha, Perseguir e Atacar ligados por setas"><defs><marker id="a7" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+<g fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="55" width="150" height="56" rx="8"/><rect x="245" y="55" width="150" height="56" rx="8"/><rect x="480" y="55" width="150" height="56" rx="8"/>
+<path d="M160 70 H245" marker-end="url(#a7)"/><path d="M245 98 H160" marker-end="url(#a7)"/><path d="M395 70 H480" marker-end="url(#a7)"/><path d="M480 98 H395" marker-end="url(#a7)"/></g>
+<g fill="currentColor" font-size="15" text-anchor="middle"><text x="85" y="88">Patrulha</text><text x="320" y="88">Perseguir</text><text x="555" y="88">Atacar</text>
+<text x="202" y="50" font-size="12">vê o herói</text><text x="202" y="122" font-size="12">perdeu</text><text x="437" y="50" font-size="12">no alcance</text><text x="437" y="122" font-size="12">fugiu</text></g></svg>
+<p>Em C#, o jeito mais direto é um <code>enum</code> com os estados e um <code>switch</code> no <code>Update</code>. Cada estado vira um método pequeno:</p>
+<span class="file">InimigoIA.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> InimigoIA : MonoBehaviour
+{
+    <span class="k">private</span> <span class="k">enum</span> Estado { Patrulha, Perseguir, Atacar }
+
+    [Header(<span class="s">"Alvo e percepção"</span>)]
+    [SerializeField] <span class="k">private</span> Transform alvo;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> alcanceVisao = 8f;
+    [SerializeField, Range(10f, 180f)] <span class="k">private</span> <span class="k">float</span> anguloVisao = 110f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> alcanceAtaque = 1.5f;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> dano = 1;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> intervaloAtaque = 1f;
+    [SerializeField] <span class="k">private</span> LayerMask obstaculos;
+
+    [Header(<span class="s">"Movimento"</span>)]
+    [SerializeField] <span class="k">private</span> Transform[] pontosDePatrulha;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidadePatrulha = 1.5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidadePerseguicao = 3.5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> tempoParaDesistir = 3f;
+
+    <span class="k">private</span> Estado estado = Estado.Patrulha;
+    <span class="k">private</span> <span class="k">int</span> pontoAtual;
+    <span class="k">private</span> <span class="k">float</span> tempoSemVer;
+    <span class="k">private</span> <span class="k">float</span> proximoAtaque;
+    <span class="k">private</span> Vector3 ultimaPosicaoVista;
+
+    <span class="k">void</span> Update()
+    {
+        <span class="k">bool</span> viu = EnxergaAlvo();
+        <span class="k">float</span> distancia = Vector3.Distance(transform.position, alvo.position);
+
+        <span class="k">if</span> (viu)
+        {
+            tempoSemVer = 0f;
+            ultimaPosicaoVista = alvo.position;   <span class="c">// só o que foi visto é conhecido</span>
+        }
+        <span class="k">else</span> tempoSemVer += Time.deltaTime;
+
+        <span class="c">// Árvore de decisão: a ordem das perguntas define a personalidade</span>
+        <span class="k">if</span> (viu &amp;&amp; distancia &lt;= alcanceAtaque) estado = Estado.Atacar;
+        <span class="k">else</span> <span class="k">if</span> (viu) estado = Estado.Perseguir;
+        <span class="k">else</span> <span class="k">if</span> (estado != Estado.Patrulha &amp;&amp; tempoSemVer &gt; tempoParaDesistir) estado = Estado.Patrulha;
+
+        <span class="k">switch</span> (estado)
+        {
+            <span class="k">case</span> Estado.Patrulha:  Patrulhar(); <span class="k">break</span>;
+            <span class="k">case</span> Estado.Perseguir: Mover(ultimaPosicaoVista, velocidadePerseguicao); <span class="k">break</span>;
+            <span class="k">case</span> Estado.Atacar:    Atacar(); <span class="k">break</span>;
+        }
+    }
+
+    <span class="k">private</span> <span class="k">bool</span> EnxergaAlvo()
+    {
+        Vector3 ate = alvo.position - transform.position;
+        <span class="k">if</span> (ate.magnitude &gt; alcanceVisao) <span class="k">return</span> <span class="k">false</span>;
+        <span class="k">if</span> (Vector3.Angle(transform.forward, ate) &gt; anguloVisao * 0.5f) <span class="k">return</span> <span class="k">false</span>;
+
+        <span class="c">// Raycast à altura dos olhos: uma parede no caminho bloqueia a visão</span>
+        Vector3 olhos = transform.position + Vector3.up;
+        Vector3 destino = alvo.position + Vector3.up;
+        <span class="k">return</span> !Physics.Linecast(olhos, destino, obstaculos);
+    }
+
+    <span class="k">private</span> <span class="k">void</span> Patrulhar()
+    {
+        <span class="k">if</span> (pontosDePatrulha == <span class="k">null</span> || pontosDePatrulha.Length == 0) <span class="k">return</span>;
+
+        Transform ponto = pontosDePatrulha[pontoAtual];
+        Mover(ponto.position, velocidadePatrulha);
+
+        Vector3 plano = ponto.position - transform.position; plano.y = 0f;
+        <span class="k">if</span> (plano.magnitude &lt; 0.3f) pontoAtual = (pontoAtual + 1) % pontosDePatrulha.Length;
+    }
+
+    <span class="k">private</span> <span class="k">void</span> Mover(Vector3 destino, <span class="k">float</span> velocidade)
+    {
+        Vector3 direcao = destino - transform.position; direcao.y = 0f;
+        <span class="k">if</span> (direcao.sqrMagnitude &lt; 0.0001f) <span class="k">return</span>;
+
+        transform.position += direcao.normalized * velocidade * Time.deltaTime;
+        transform.rotation = Quaternion.Slerp(transform.rotation,
+            Quaternion.LookRotation(direcao), 8f * Time.deltaTime);
+    }
+
+    <span class="k">private</span> <span class="k">void</span> Atacar()
+    {
+        <span class="k">if</span> (Time.time &lt; proximoAtaque) <span class="k">return</span>;
+
+        <span class="k">if</span> (alvo.TryGetComponent(<span class="k">out</span> IDanificavel vitima))
+        {
+            vitima.ReceberDano(dano);
+            proximoAtaque = Time.time + intervaloAtaque;
+        }
+    }
+}</code></pre>
+<p>Quatro detalhes importantes: o inimigo persegue a <strong>última posição em que viu o herói</strong>, e não a posição real, o que torna possível se esconder (do contrário ele seria onisciente); o <strong>ângulo de visão</strong> impede o inimigo de enxergar às costas; o <code>Linecast</code> impede de enxergar através de paredes; e o <code>tempoParaDesistir</code> dá ao jogador a chance de fugir, o que torna o stealth possível.</p></section>
+
+<section id="montagem"><h2>Montando a sala de teste</h2>
+<div class="steps"><div class="step"><h3>Crie o posto de guarda</h3><p>Em uma sala do seu cenário, crie três objetos vazios (<code>Ponto A</code>, <code>Ponto B</code>, <code>Ponto C</code>) em triângulo no chão. Eles são a rota da patrulha.</p></div><div class="step"><h3>Prepare o inimigo</h3><p>Use um modelo de monstro (o do kit ou o seu) e adicione <code>InimigoIA</code>. O jogador precisa ter o componente <code>Vida</code> do módulo 6, pois é por ele que o dano chega. Arraste o jogador para <code>Alvo</code>, os três pontos para <code>Pontos de Patrulha</code> e marque a camada das paredes em <code>Obstaculos</code>.</p></div><div class="step"><h3>Desenhe o campo de visão</h3><p>Adicione ao script um método <code>OnDrawGizmosSelected</code> que desenha uma esfera de alcance e duas linhas nos limites do ângulo. Ver a visão na aba Scene acelera todo o ajuste.</p></div><div class="step"><h3>Teste os quatro comportamentos</h3><p>Aperte Play e confira: ele patrulha; vê você de frente e persegue; perde você atrás de uma parede e, depois de 3 s, volta à patrulha; encostado em você, ataca.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> o inimigo muda de estado conforme sua posição, não enxerga através de paredes e retorna à patrulha quando você some.</div></section>
+
+<section id="design"><h2>IA que o jogador entende</h2>
+<p>IA de jogo não é inteligência: é <strong>legibilidade</strong>. O jogador precisa perceber o que o inimigo está fazendo para poder reagir. Algumas técnicas baratas:</p>
+<table><tr><th>Técnica</th><th>Efeito</th></tr><tr><td>Cor ou ícone acima da cabeça</td><td>Mostra o estado atual (calmo, alerta, perseguindo)</td></tr><tr><td>Som ao mudar de estado</td><td>Avisa o jogador de que foi visto</td></tr><tr><td>Atraso de reação (0,3 s)</td><td>Faz o inimigo parecer humano e dá chance de escapar</td></tr><tr><td>Velocidade menor que a do herói na perseguição</td><td>Torna a fuga possível; a tensão vem do risco, não da injustiça</td></tr></table>
+<div class="note"><strong>Conexão com as mecânicas.</strong> Stealth usa visão e som; Survival usa perseguição e desistência; Corrida usa adversários que seguem pontos de uma pista; Plataforma usa patrulha entre bordas; Puzzle usa inimigos de rota fixa que o jogador precisa estudar.</div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>pelo menos um inimigo com máquina de estados de 3 ou mais estados, com os valores ajustáveis no Inspector;</li><li>percepção por distância e ângulo e, quando fizer sentido, bloqueio por obstáculos;</li><li>um Gizmo mostrando o alcance de visão na aba Scene;</li><li>uma indicação visual ou sonora do estado do inimigo;</li><li>o diagrama de estados do inimigo desenhado e anexado ao repositório.</li></ul>
+<p>As instruções completas estão na Atividade Prática C07.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O inimigo me vê através da parede</summary><div><p>O campo <code>Obstaculos</code> está vazio ou a parede está em outra camada. Marque a camada correta e confirme que a parede tem colisor.</p></div></details><details><summary>O inimigo anda afundando ou voando</summary><div><p>O código zera o eixo Y da direção, então a altura nunca muda. Se o chão for irregular, use <code>CharacterController</code> ou NavMeshAgent (próximo módulo).</p></div></details><details><summary>Ele fica tremendo ao chegar no ponto de patrulha</summary><div><p>A tolerância de chegada (0,3) está pequena demais para a velocidade. Aumente-a ou reduza a velocidade perto do destino.</p></div></details><details><summary>Ele nunca desiste da perseguição</summary><div><p>Se o jogador continua dentro do campo de visão, o contador zera sempre. Teste escondendo-se atrás de um obstáculo ou fora do ângulo de visão.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC07_IA_Inimigos.pdf" download>Baixar Atividade Prática C07 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-06.html">← Módulo 06: Componentes</a><a href="modulo-08.html">Módulo 08: Grafos e NavMesh →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

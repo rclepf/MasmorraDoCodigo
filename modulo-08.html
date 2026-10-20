@@ -1,0 +1,125 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 08 · Grafos, caminhos e NavMesh</title><meta name="description" content="Navegação em jogos 3D com Unity: grafos, busca em largura, ideia do A*, NavMesh, NavMeshAgent e obstáculos dinâmicos.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 08 de 12 · 15h</span></div>
+<header class="hero"><h1>Grafos, caminhos e NavMesh</h1><p>Você transforma a masmorra em um mapa que o computador entende, calcula o menor caminho entre dois pontos e coloca os inimigos para contornar paredes sozinhos.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#grafo">O mapa como grafo</a></li><li><a href="#navmesh">NavMesh: o mapa automático da Unity</a></li><li><a href="#dinamico">Portas, rampas e obstáculos que se movem</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você desenhou a planta do cenário: salas, corredores, portas. Essa planta já era, sem você saber, um <strong>grafo</strong>: cada sala é um ponto e cada passagem é uma ligação. É com essa ideia que o computador "enxerga" o mapa e decide por onde um personagem deve andar.</p>
+<div class="note"><strong>Dica de produção.</strong> Mantenha as passagens com pelo menos 1 m de largura e os degraus e rampas com inclinação suave. A navegação automática depende da geometria que você modelou: um corredor estreito demais simplesmente não será considerado caminhável.</div></section>
+
+<section id="grafo"><h2>O mapa como grafo</h2>
+<p>Um <strong>grafo</strong> é um conjunto de <strong>nós</strong> ligados por <strong>arestas</strong>. Em jogos, os nós podem ser salas, células de um tabuleiro, pontos de patrulha ou polígonos do piso.</p>
+<svg class="diagram" viewBox="0 0 640 190" role="img" aria-label="Quatro salas ligadas por corredores, formando um grafo"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="20" y="30" width="110" height="50" rx="6"/><rect x="265" y="30" width="110" height="50" rx="6"/><rect x="510" y="30" width="110" height="50" rx="6"/><rect x="265" y="115" width="110" height="50" rx="6"/>
+<path d="M130 55 H265"/><path d="M375 55 H510"/><path d="M320 80 V115"/></g>
+<g fill="currentColor" font-size="14" text-anchor="middle"><text x="75" y="60">Entrada</text><text x="320" y="60">Salão</text><text x="565" y="60">Tesouro</text><text x="320" y="145">Cripta</text></g></svg>
+<p>Perguntas que um grafo responde: existe caminho entre A e B? Qual o menor? Quais salas posso alcançar sem passar pela porta trancada? A resposta clássica é a <strong>busca em largura</strong> (BFS): explora a partir da origem, camada por camada, e o primeiro encontro com o destino é o caminho mais curto.</p>
+<span class="file">BuscaEmLargura.cs</span>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">static</span> <span class="k">class</span> BuscaEmLargura
+{
+    <span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> Vector2Int[] vizinhos =
+    {
+        Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+    };
+
+    <span class="c">// bloqueado[x, y] == true significa parede. Devolve a lista de células, ou null se não houver caminho.</span>
+    <span class="k">public</span> <span class="k">static</span> List&lt;Vector2Int&gt; Caminho(<span class="k">bool</span>[,] bloqueado, Vector2Int origem, Vector2Int destino)
+    {
+        <span class="k">int</span> largura = bloqueado.GetLength(0), altura = bloqueado.GetLength(1);
+        <span class="k">var</span> veioDe = <span class="k">new</span> Dictionary&lt;Vector2Int, Vector2Int&gt;();
+        <span class="k">var</span> fila = <span class="k">new</span> Queue&lt;Vector2Int&gt;();
+
+        fila.Enqueue(origem);
+        veioDe[origem] = origem;
+
+        while (fila.Count &gt; 0)
+        {
+            Vector2Int atual = fila.Dequeue();
+            <span class="k">if</span> (atual == destino) <span class="k">return</span> Reconstruir(veioDe, origem, destino);
+
+            <span class="k">foreach</span> (Vector2Int d <span class="k">in</span> vizinhos)
+            {
+                Vector2Int prox = atual + d;
+                <span class="k">bool</span> dentro = prox.x &gt;= 0 &amp;&amp; prox.y &gt;= 0 &amp;&amp; prox.x &lt; largura &amp;&amp; prox.y &lt; altura;
+                <span class="k">if</span> (!dentro || bloqueado[prox.x, prox.y] || veioDe.ContainsKey(prox)) continue;
+
+                veioDe[prox] = atual;
+                fila.Enqueue(prox);
+            }
+        }
+        <span class="k">return</span> <span class="k">null</span>;
+    }
+
+    <span class="k">private</span> <span class="k">static</span> List&lt;Vector2Int&gt; Reconstruir(Dictionary&lt;Vector2Int, Vector2Int&gt; veioDe, Vector2Int origem, Vector2Int destino)
+    {
+        <span class="k">var</span> caminho = <span class="k">new</span> List&lt;Vector2Int&gt;();
+        <span class="k">for</span> (Vector2Int c = destino; c != origem; c = veioDe[c]) caminho.Add(c);
+        caminho.Add(origem);
+        caminho.Reverse();
+        <span class="k">return</span> caminho;
+    }
+}</code></pre>
+<p>Repare no dicionário <code>veioDe</code>: ele serve ao mesmo tempo para não visitar a mesma célula duas vezes e para remontar o caminho de trás para frente. É um bom exercício de <code>Queue</code>, <code>Dictionary</code> e <code>List</code>.</p>
+<div class="note"><strong>E o A*?</strong> O A* é uma BFS mais esperta: em vez de explorar em todas as direções, ela prefere os nós que parecem mais perto do destino, somando o custo já andado e uma estimativa do que falta (a <em>heurística</em>, geralmente a distância em linha reta). Encontra o mesmo caminho curto explorando muito menos células. A Unity usa uma variação dele por dentro do NavMesh.</div>
+<div class="steps"><div class="step"><h3>Teste em uma grade pequena</h3><p>Crie um script de teste com um <code>bool[,]</code> de 8 por 8, algumas paredes e chame <code>BuscaEmLargura.Caminho</code> entre dois cantos. Imprima cada célula do resultado com <code>Debug.Log</code>.</p></div><div class="step"><h3>Desenhe o caminho</h3><p>Use <code>Debug.DrawLine</code> entre células consecutivas, convertendo <code>x,y</code> em <code>x,0,y</code> do mundo. Ver o caminho na aba Scene mostra se a lógica está certa.</p></div><div class="step"><h3>Feche a passagem</h3><p>Marque uma célula-chave como parede e veja o caminho contornar ou o método devolver <code>null</code>. Esse é o resultado que o seu jogo precisa tratar sem quebrar.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> o caminho é o mais curto possível, contorna as paredes e o método devolve null quando o destino está isolado.</div></section>
+
+<section id="navmesh"><h2>NavMesh: o mapa automático da Unity</h2>
+<p>Em um cenário 3D, dividir o piso em células à mão é trabalhoso. A Unity oferece o <strong>NavMesh</strong>: uma malha simplificada que cobre todo o chão em que um agente pode andar, gerada automaticamente a partir da geometria do cenário. É o grafo, feito para você, em que cada polígono do piso é um nó.</p>
+<div class="steps"><div class="step"><h3>Instale o pacote</h3><p>Abra <em>Window &gt; Package Manager</em>, escolha <em>Unity Registry</em>, procure <strong>AI Navigation</strong> e clique em <em>Install</em>. No Unity 6 esse pacote traz o componente <code>NavMesh Surface</code>.</p></div><div class="step"><h3>Crie a superfície</h3><p>Em um objeto vazio chamado <code>Navegacao</code>, adicione <em>NavMesh Surface</em>. Em <em>Collect Objects</em> deixe <em>All Game Objects</em> e clique em <em>Bake</em>. Uma área azul aparece sobre o chão caminhável.</p></div><div class="step"><h3>Marque o que é obstáculo</h3><p>Paredes e pilares entram no cálculo automaticamente. Para algo que não deve bloquear (decoração pequena), desmarque-o ou use <em>Not Walkable</em> no componente <em>NavMesh Modifier</em>.</p></div><div class="step"><h3>Ajuste o agente</h3><p>Em <em>Agents</em>, o raio, a altura e a inclinação máxima definem o que conta como caminhável. Se o corredor ficou fora do azul, o raio do agente é maior que a passagem: diminua o raio ou alargue o modelo no Blender.</p></div></div>
+<p>Com o NavMesh pronto, um inimigo precisa apenas de um componente <code>NavMeshAgent</code> e de alguém que diga para onde ir:</p>
+<span class="file">PerseguidorNavMesh.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.AI;
+
+[RequireComponent(typeof(NavMeshAgent))]
+<span class="k">public</span> <span class="k">class</span> PerseguidorNavMesh : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform alvo;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> velocidade = 3.5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> distanciaParar = 1.2f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> intervaloRecalculo = 0.25f;
+
+    <span class="k">private</span> NavMeshAgent agente;
+    <span class="k">private</span> <span class="k">float</span> proximoRecalculo;
+
+    <span class="k">void</span> Awake()
+    {
+        agente = GetComponent&lt;NavMeshAgent&gt;();
+        agente.speed = velocidade;
+        agente.stoppingDistance = distanciaParar;
+    }
+
+    <span class="k">void</span> Update()
+    {
+        <span class="k">if</span> (alvo == <span class="k">null</span> || !agente.isOnNavMesh) <span class="k">return</span>;
+        <span class="k">if</span> (Time.time &lt; proximoRecalculo) <span class="k">return</span>;
+
+        <span class="c">// Recalcular a cada quadro é desperdício: 4 vezes por segundo basta</span>
+        agente.SetDestination(alvo.position);
+        proximoRecalculo = Time.time + intervaloRecalculo;
+    }
+}</code></pre>
+<p>Compare com o módulo anterior: no <code>InimigoIA</code>, o método <code>Mover</code> andava em linha reta e batia nas paredes. Agora a <strong>decisão</strong> (perseguir) continua sendo da máquina de estados, mas o <strong>caminho</strong> é do NavMesh. É assim que se divide o trabalho em jogos reais.</p>
+<div class="check"><strong>Checkpoint:</strong> o inimigo contorna paredes e esquinas para chegar até você e para a uma distância de ataque, sem tentar atravessar nada.</div></section>
+
+<section id="dinamico"><h2>Portas, rampas e obstáculos que se movem</h2>
+<table><tr><th>Situação</th><th>Solução</th></tr><tr><td>Porta que abre e fecha</td><td><code>NavMeshObstacle</code> com <em>Carve</em> ligado: quando a porta está fechada, o buraco no NavMesh bloqueia o caminho</td></tr><tr><td>Caixa que o jogador empurra</td><td><code>NavMeshObstacle</code> em modo <em>Carve</em>, com <em>Move Threshold</em> para não recalcular o tempo todo</td></tr><tr><td>Piso de lama ou água rasa</td><td><em>Área</em> com custo maior: o agente evita, mas pode atravessar se for o único caminho</td></tr><tr><td>Salto ou queda de uma plataforma</td><td><em>Off-Mesh Link</em> ligando dois pontos do NavMesh</td></tr></table>
+<div class="note"><strong>Stealth, Survival, Corrida, Puzzle e Plataforma.</strong> Stealth usa áreas de custo para os guardas evitarem a luz; Survival usa o NavMesh para perseguições longas; Corrida usa pontos de passagem na pista; Puzzle usa a BFS em grade para validar se a fase tem solução; Plataforma usa Off-Mesh Links nos saltos.</div></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>uma busca em largura funcionando em uma grade, com teste de caso sem caminho;</li><li>um NavMesh gerado para a fase do jogo da equipe;</li><li>pelo menos um inimigo usando <code>NavMeshAgent</code> para perseguir ou patrulhar;</li><li>um obstáculo dinâmico (porta ou caixa) que altera o caminho em tempo de execução;</li><li>um print da aba Scene com o NavMesh visível e o caminho de um agente.</li></ul>
+<p>As instruções completas estão na Atividade Prática C08.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O agente avisa que não está sobre um NavMesh</summary><div><p>O inimigo foi posicionado fora da área azul ou o NavMesh não foi gerado. Reposicione-o sobre o chão e clique em <em>Bake</em> de novo.</p></div></details><details><summary>O NavMesh não cobre um corredor</summary><div><p>O corredor é mais estreito que o raio do agente ou tem degraus altos. Ajuste as medidas do agente em <em>Agents</em> ou o modelo no Blender.</p></div></details><details><summary>Depois de mover uma parede, o caminho continua antigo</summary><div><p>O NavMesh gerado é estático. Para objetos que se movem, use <code>NavMeshObstacle</code> com <em>Carve</em>, ou gere o NavMesh de novo em tempo de execução.</p></div></details><details><summary>A busca em largura trava o jogo em um mapa grande</summary><div><p>Mapas grandes pedem A* e cálculo espalhado em vários quadros. Para a UC, mantenha as grades pequenas ou use o NavMesh.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC08_Navegacao_NavMesh.pdf" download>Baixar Atividade Prática C08 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-07.html">← Módulo 07: Árvores de decisão</a><a href="modulo-09.html">Módulo 09: Padrões de projeto →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>
