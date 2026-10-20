@@ -11,7 +11,7 @@
 <article>
 <section id="ponte"><h2>A ponte entre as duas UCs</h2>
 <p>Na UC <strong>Planejamento e Produção de Elementos Multimídia de Jogos Digitais</strong> você produziu os elementos de um jogo: logotipo, arte, pixel art, modelos 3D, texturas, vídeo e som. Nesta UC você faz esses elementos <strong>funcionarem</strong>: o código dá movimento, regras e resposta ao jogador.</p>
-<p>Um jogo digital só existe quando as duas partes se encontram. Sem assets, o código controla cubos cinzas. Sem código, os assets ficam em uma pasta. Por isso, nada do que você fez antes será descartado.</p>
+<p>Um jogo digital só existe quando as duas partes se encontram. Sem assets, o código controla cubos cinzas. Sem código, os assets ficam em uma pasta. Por isso, nada do que você fez antes será descartado. E, se algo da UC anterior ficou incompleto ou não existe, o kit desta UC cobre a lacuna.</p>
 <svg class="uml" viewBox="0 0 640 230" role="img" aria-label="Fluxo: assets criados na UC anterior entram na pasta Assets da Unity e viram cena jogável com código C#">
 <rect x="10" y="10" width="190" height="210"/><text class="h" x="22" y="34">UC anterior</text>
 <text x="22" y="62">Illustrator: logo</text><text x="22" y="86">Photoshop: arte</text><text x="22" y="110">Aseprite: pixel art</text><text x="22" y="134">Blender: modelos e UV</text><text x="22" y="158">Premiere: teaser</text><text x="22" y="182">Audition: áudio</text><text x="22" y="206">GDD e ludologia</text>
@@ -41,8 +41,8 @@
 <table><tr><th>Asset</th><th>Origem (atividade)</th><th>Formato</th><th>Situação</th></tr>
 <tr><td>Ex.: baú</td><td>Atividades 08 a 10</td><td>.fbx</td><td>Pronto para importar</td></tr>
 <tr><td>Ex.: logotipo</td><td>Atividade 01</td><td>.png com transparência</td><td>Falta exportar em 512 px</td></tr>
-<tr><td>Ex.: herói</td><td>(não existe)</td><td>-</td><td>Usar o kit provisório</td></tr></table>
-<p>Marque cada linha como <em>Pronto</em>, <em>Ajustar</em> ou <em>Criar</em>. Entregue esse inventário junto com o GDD.</p></section>
+<tr><td>Ex.: herói</td><td>(não existe)</td><td>-</td><td>Usar o kit da aula</td></tr></table>
+<p>Marque cada linha como <em>Pronto</em>, <em>Ajustar</em>, <em>Criar</em> ou <em>Usar o kit</em>. Quem não tem assets da UC anterior preenche a tabela com os itens do kit. Entregue o inventário junto com o GDD.</p></section>
 <section id="gdd"><h2>GDD enxuto</h2>
 <p>O Game Design Document (GDD) registra o que o jogo é antes de existir código. Um GDD de duas páginas basta nesta fase, desde que responda estas perguntas:</p>
 <table><tr><th>Seção</th><th>Pergunta</th><th>No jogo-guia</th></tr>
@@ -84,14 +84,14 @@
 
 <section id="kit"><h2>Importando o kit e montando o greybox</h2>
 <p>Greybox é a primeira sala feita só com formas básicas, para testar escala, câmera e fluxo antes de gastar tempo com arte.</p>
-<p>O kit abaixo é <strong>provisório</strong>: serve para a aula rodar desde o início. Conforme o semestre avança, ele é trocado pelos assets que você mesmo produziu na UC anterior.</p>
+<p>O kit abaixo é o <strong>ponto de partida garantido</strong> do projeto. Quem fez a UC anterior troca os modelos pelos seus próprios assets conforme o semestre avança. Quem não tem essa base, ou perdeu arquivos, segue com o kit completo e não fica para trás.</p>
 <p><a class="dl" href="Dungeon3D_Kit.zip" download>Baixar Dungeon3D_Kit.zip</a></p>
 <ul class="assets"><li>Floor_Tile</li><li>Wall</li><li>Wall_Door</li><li>Door</li><li>Pillar</li><li>Crate</li><li>Barrel</li><li>Torch</li><li>Chest</li><li>Coin</li><li>Key</li><li>Potion</li><li>Sword</li><li>Player</li><li>Enemy_Slime</li><li>Enemy_Skeleton</li></ul>
 <div class="steps">
 <div class="step"><h3>Copie as pastas</h3><p>Descompacte o zip e arraste <code>Models</code> e <code>Textures</code> para a pasta <code>Assets</code>. A Unity importa cada OBJ e cria um material por cor.</p></div>
-<div class="step"><h3>Monte uma sala de 3 por 3 tiles</h3><p>Se você tem o galpão da Atividade 10.8, use-o como primeira sala. Caso contrário, use o kit. Cada tile do kit mede 4 por 4 metros. Posicione nove <code>Floor_Tile</code> em múltiplos de 4 no eixo X e Z, e cerque a sala com <code>Wall</code>. Deixe uma abertura com <code>Wall_Door</code>.</p></div>
+<div class="step"><h3>Monte uma sala de 3 por 3 tiles</h3><p>Se você tem o galpão da Atividade 10.8, use-o como primeira sala. Caso contrário, monte a sala com o kit. Cada tile do kit mede 4 por 4 metros. Posicione nove <code>Floor_Tile</code> em múltiplos de 4 no eixo X e Z, e cerque a sala com <code>Wall</code>. Deixe uma abertura com <code>Wall_Door</code>.</p></div>
 <div class="step"><h3>Teste a escala</h3><p>Crie um <em>Capsule</em> de altura 2 como jogador provisório e confira se cabe na porta. Se algo estiver gigante ou minúsculo, o problema é de escala de importação: confira <em>Scale Factor</em> no modelo.</p></div>
-<div class="step"><h3>Importe um modelo seu do Blender</h3><p>Pegue o baú (ou outro objeto) que você exportou na Atividade 12 e arraste o <code>.fbx</code> para <code>Assets/Models</code>. Selecione o arquivo e confira no Inspector, na aba <em>Model</em>, o <em>Scale Factor</em> e, na aba <em>Materials</em>, se as texturas foram reconhecidas. Coloque o baú ao lado do <code>Chest</code> do kit: se os tamanhos diferirem muito, falta Apply Scale ou conferir a unidade no Blender.</p></div>
+<div class="step"><h3>Importe um modelo seu do Blender</h3><p>Se você tem o baú (ou outro objeto) exportado na Atividade 12, arraste o <code>.fbx</code> para <code>Assets/Models</code>. Selecione o arquivo e confira no Inspector, na aba <em>Model</em>, o <em>Scale Factor</em> e, na aba <em>Materials</em>, se as texturas foram reconhecidas. Coloque o baú ao lado do <code>Chest</code> do kit: se os tamanhos diferirem muito, falta Apply Scale ou conferir a unidade no Blender. Sem modelo próprio, use o <code>Chest</code> do kit.</p></div>
 <div class="step"><h3>Salve como Prefab</h3><p>Arraste a sala da hierarquia para <code>Assets/Prefabs</code>. Prefabs permitem reutilizar a sala sem copiar objeto por objeto.</p></div></div>
 <div class="check"><strong>Checkpoint:</strong> a sala aparece completa na aba Game, sem materiais rosa e com a capsule passando pela porta.</div></section>
 
@@ -156,7 +156,7 @@ git push -u origin main</code></pre></div></div>
 
 <section id="entrega"><h2>Checkpoint do módulo</h2>
 <p>Ao final do módulo, o projeto da equipe deve ter:</p>
-<ul><li>inventário de assets da equipe, com a origem de cada um na UC anterior;</li><li>GDD de duas páginas e tabela de requisitos (mínimo 6 RF e 3 RNF);</li><li>diagrama de classes com pelo menos 5 classes;</li><li>projeto Unity com sala greybox, pelo menos 2 assets produzidos pela equipe na UC anterior e o <code>HelloDungeon</code> funcionando;</li><li>repositório Git com no mínimo 3 commits e um ramo mesclado.</li></ul>
+<ul><li>inventário de assets da equipe, com a origem de cada um (UC anterior ou kit);</li><li>GDD de duas páginas e tabela de requisitos (mínimo 6 RF e 3 RNF);</li><li>diagrama de classes com pelo menos 5 classes;</li><li>projeto Unity com sala greybox, assets da UC anterior ou do kit e o <code>HelloDungeon</code> funcionando;</li><li>repositório Git com no mínimo 3 commits e um ramo mesclado.</li></ul>
 <p>As instruções completas estão na Atividade Prática do módulo.</p></section>
 
 <section id="erros"><h2>Problemas comuns</h2>
