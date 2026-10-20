@@ -1,0 +1,114 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 11 · Segurança e integridade em jogos</title><meta name="description" content="Segurança em jogos digitais com Unity e C#: adulteração de saves, assinatura HMAC, validação de dados, limites do lado do cliente e proteção de dados pessoais.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 11 de 12 · 15h</span></div>
+<header class="hero"><h1>Segurança e integridade em jogos</h1><p>Você descobre como saves e dados de um jogo podem ser adulterados, aprende a detectar a trapaça mais comum e a proteger os dados dos jogadores, sem prometer uma segurança que não existe.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#realidade">A regra de ouro: o cliente é do jogador</a></li><li><a href="#validar">Primeira defesa: nunca confiar no que foi lido</a></li><li><a href="#assinatura">Segunda defesa: detectar edição com assinatura</a></li><li><a href="#privacidade">Dados pessoais e privacidade</a></li><li><a href="#mecanicas">Segurança por mecânica</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você cuidou dos direitos sobre o material: de onde vêm as imagens, os sons e as fontes, e o que você pode ou não usar. A segurança de dados é o mesmo cuidado, só que voltado ao jogador: <strong>o que o jogo guarda, quem pode mexer e o que pode dar errado</strong>.</p>
+<div class="note"><strong>Dica de produção.</strong> Antes de pensar em proteger alguma coisa, pergunte quanto custa se ela for violada. Em um jogo offline para um jogador, um save editado só afeta quem trapaceou. Em um jogo com ranking ou compras, o custo é bem maior.</div></section>
+
+<section id="realidade"><h2>A regra de ouro: o cliente é do jogador</h2>
+<p>Tudo o que roda no computador do jogador pode ser lido, copiado e modificado por ele: o save, a memória, o próprio código. Por isso:</p>
+<ul><li>não existe proteção perfeita do lado do cliente; existe <strong>aumentar o esforço</strong> para trapacear;</li><li>nunca embuta no jogo uma chave de serviço, senha ou token que, se descoberto, dê acesso a algo valioso;</li><li>qualquer regra importante (ranking, compra, moeda paga) precisa ser conferida em um <strong>servidor</strong>, que o jogador não controla.</li></ul>
+<table><tr><th>Ameaça</th><th>Exemplo</th><th>Defesa razoável</th></tr><tr><td>Editar o save</td><td>Mudar <code>pontos</code> de 10 para 999999 no arquivo</td><td>Assinatura do arquivo e validação de limites</td></tr><tr><td>Entrada inválida</td><td>Nome de jogador com 10 mil caracteres</td><td>Validar tamanho e caracteres</td></tr><tr><td>Vazamento de dados</td><td>Salvar e-mail do jogador em texto puro</td><td>Coletar o mínimo e proteger o que coletar</td></tr><tr><td>Segredos no código</td><td>Chave de API dentro do jogo</td><td>Não embutir; usar servidor intermediário</td></tr></table></section>
+
+<section id="validar"><h2>Primeira defesa: nunca confiar no que foi lido</h2>
+<p>Mesmo sem assinatura, todo dado que entra no jogo, vindo de arquivo, rede ou digitação, passa por uma <strong>validação</strong>. Ela é barata e já barra a maioria dos erros e dos truques:</p>
+<span class="file">ValidadorDeSave.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">static</span> <span class="k">class</span> ValidadorDeSave
+{
+    <span class="k">private</span> <span class="k">const</span> <span class="k">int</span> PontosMaximos = 1_000_000;
+    <span class="k">private</span> <span class="k">const</span> <span class="k">int</span> VidaMaxima = 10;
+    <span class="k">private</span> <span class="k">const</span> <span class="k">float</span> LimiteDoMapa = 500f;
+
+    <span class="k">public</span> <span class="k">static</span> DadosSave Sanear(DadosSave d)
+    {
+        d.pontos = Mathf.Clamp(d.pontos, 0, PontosMaximos);
+        d.vida = Mathf.Clamp(d.vida, 1, VidaMaxima);
+
+        Vector3 p = d.posicao;
+        <span class="k">bool</span> valida = !<span class="k">float</span>.IsNaN(p.x) &amp;&amp; !<span class="k">float</span>.IsNaN(p.y) &amp;&amp; !<span class="k">float</span>.IsNaN(p.z)
+                      &amp;&amp; Mathf.Abs(p.x) &lt;= LimiteDoMapa &amp;&amp; Mathf.Abs(p.y) &lt;= LimiteDoMapa &amp;&amp; Mathf.Abs(p.z) &lt;= LimiteDoMapa;
+        <span class="k">if</span> (!valida) d.posicao = Vector3.zero;
+
+        d.itens.RemoveAll(i =&gt; i == <span class="k">null</span> || <span class="k">string</span>.IsNullOrEmpty(i.nome) || i.quantidade &lt; 0 || i.quantidade &gt; 999);
+        <span class="k">if</span> (d.fase == <span class="k">null</span> || d.fase.Length &gt; 40) d.fase = <span class="s">"Masmorra01"</span>;
+        <span class="k">return</span> d;
+    }
+}</code></pre>
+<p>Repare que não perguntamos "quem editou?", só "esse valor é possível no jogo?". Um valor impossível é corrigido para um valor válido. Essa técnica também protege contra <strong>erros honestos</strong>, como um arquivo cortado pela metade.</p></section>
+
+<section id="assinatura"><h2>Segunda defesa: detectar edição com assinatura</h2>
+<p>Uma <strong>assinatura</strong> (HMAC, ou <em>código de autenticação de mensagem</em>) é um resumo do conteúdo, calculado com uma chave. Se o arquivo mudar um caractere, o resumo deixa de bater. Guardamos o resumo junto do save e conferimos ao carregar:</p>
+<span class="file">SaveAssinado.cs</span>
+<pre><code><span class="k">using</span> System;
+<span class="k">using</span> System.IO;
+<span class="k">using</span> System.Security.Cryptography;
+<span class="k">using</span> System.Text;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">static</span> <span class="k">class</span> SaveAssinado
+{
+    <span class="c">// Chave de exemplo. Ela existe no jogo, então um jogador determinado pode encontrá-la.</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> byte[] chave = Encoding.UTF8.GetBytes(<span class="s">"troque-esta-chave-no-seu-projeto"</span>);
+
+    <span class="k">private</span> <span class="k">static</span> <span class="k">string</span> Caminho =&gt; Path.Combine(Application.persistentDataPath, <span class="s">"seguro.json"</span>);
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">string</span> Assinar(<span class="k">string</span> json)
+    {
+        <span class="k">using</span> <span class="k">var</span> hmac = <span class="k">new</span> HMACSHA256(chave);
+        <span class="k">return</span> Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(json)));
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> Salvar(DadosSave dados)
+    {
+        <span class="k">string</span> json = JsonUtility.ToJson(dados);
+        <span class="c">// Primeira linha: assinatura. Restante: conteúdo</span>
+        File.WriteAllText(Caminho, Assinar(json) + <span class="s">"\n"</span> + json);
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">bool</span> TentarCarregar(<span class="k">out</span> DadosSave dados)
+    {
+        dados = <span class="k">new</span> DadosSave();
+        <span class="k">if</span> (!File.Exists(Caminho)) <span class="k">return</span> <span class="k">false</span>;
+
+        <span class="k">string</span>[] partes = File.ReadAllText(Caminho).Split(<span class="k">new</span>[] { '\n' }, 2);
+        <span class="k">if</span> (partes.Length != 2) <span class="k">return</span> <span class="k">false</span>;
+
+        <span class="k">bool</span> integro = CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(partes[0]), Encoding.UTF8.GetBytes(Assinar(partes[1])));
+        <span class="k">if</span> (!integro) <span class="k">return</span> <span class="k">false</span>;
+
+        dados = ValidadorDeSave.Sanear(JsonUtility.FromJson&lt;DadosSave&gt;(partes[1]));
+        <span class="k">return</span> <span class="k">true</span>;
+    }
+}</code></pre>
+<p>Quando <code>TentarCarregar</code> devolve falso, o jogo decide: recomeçar, avisar o jogador, ou aceitar o save mas marcá-lo como "modificado" e excluí-lo de rankings. Essa é uma decisão de design, não de código.</p>
+<div class="note"><strong>O que isso protege e o que não protege.</strong> Protege contra quem abre o JSON no bloco de notas e muda um número. <strong>Não</strong> protege contra quem decompila o jogo, acha a chave e assina um save falso, e a chave não pode ser escondida de verdade no cliente. Por isso dizemos que a assinatura <em>dificulta</em>, não que ela <em>impede</em>. Para o que realmente importa, é preciso um servidor.</div>
+<div class="steps"><div class="step"><h3>Salve e confira o arquivo</h3><p>Chame <code>SaveAssinado.Salvar</code> e abra o arquivo: a primeira linha é a assinatura e as demais são o save.</p></div><div class="step"><h3>Adultere</h3><p>Mude <code>pontos</code> no arquivo e carregue. O resultado precisa ser <em>falso</em>, e o jogo precisa reagir sem travar.</p></div><div class="step"><h3>Teste o saneamento</h3><p>Escreva um save sem assinatura com <code>pontos</code> de 9 bilhões e chame <code>Sanear</code>: o valor deve voltar ao limite.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> um save editado à mão é recusado, um save válido carrega, e valores impossíveis são corrigidos para valores possíveis.</div></section>
+
+<section id="privacidade"><h2>Dados pessoais e privacidade</h2>
+<p>Se o jogo coleta qualquer informação que identifique uma pessoa (nome, e-mail, idade, localização, identificadores de aparelho), a <strong>Lei Geral de Proteção de Dados</strong> (LGPD, Lei 13.709/2018) se aplica. Para um projeto de curso, os princípios práticos são:</p>
+<ul><li><strong>coletar o mínimo</strong>: se o jogo funciona sem o e-mail, não peça o e-mail;</li><li><strong>informar</strong> o que é coletado e para quê, em linguagem simples, antes da coleta;</li><li><strong>guardar com cuidado</strong>: nunca em texto puro quando for sensível, e nunca no repositório público;</li><li><strong>permitir apagar</strong>: um botão que remove o save e os dados do jogador;</li><li><strong>cuidado extra com crianças e adolescentes</strong>: a lei exige consentimento de um responsável para menores de 12 anos e atenção redobrada até os 18.</li></ul>
+<div class="note"><strong>Regra do repositório.</strong> Senhas, chaves e tokens nunca vão para o Git. Use um arquivo local ignorado pelo <code>.gitignore</code> e, se um segredo já foi enviado por engano, considere-o vazado e troque-o.</div></section>
+
+<section id="mecanicas"><h2>Segurança por mecânica</h2>
+<table><tr><th>Mecânica</th><th>Risco comum</th><th>Proteção</th></tr><tr><td>Plataforma</td><td>Tempo de fase adulterado para o ranking</td><td>Validar tempo mínimo possível e conferir no servidor, se houver ranking</td></tr><tr><td>Stealth</td><td>Edição do save para pular fases</td><td>Assinatura e lista de fases na ordem correta</td></tr><tr><td>Survival</td><td>Itens duplicados ao editar o inventário</td><td>Limite de quantidade e validação por tipo de item</td></tr><tr><td>Corrida</td><td>Melhor volta impossível</td><td>Tempo mínimo físico da pista</td></tr><tr><td>Puzzle</td><td>Fases concluídas sem jogar</td><td>Assinatura e contagem coerente de estrelas</td></tr></table></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>um validador que corrige ou rejeita dados impossíveis;</li><li>um save assinado que detecta edição simples;</li><li>um teste documentado de adulteração e a reação escolhida do jogo;</li><li>um texto curto com o que é coletado de dados pessoais (ou a afirmação de que nada é coletado);</li><li>uma lista com três limites da proteção feita e o que seria necessário para ir além.</li></ul>
+<p>As instruções completas estão na Atividade Prática C11.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>Meu próprio save válido é recusado</summary><div><p>Qualquer mudança no JSON depois de assinar, até uma quebra de linha, invalida a assinatura. Assine exatamente o texto que será gravado e leia exatamente o que foi gravado.</p></div></details><details><summary>A assinatura quebra quando acrescento um campo</summary><div><p>Saves antigos foram assinados com a estrutura antiga, mas o texto lido ainda é o mesmo, então a assinatura segue válida. O problema aparece se você <em>reserializa</em> antes de conferir: confira sempre o texto original.</p></div></details><details><summary>Achei que a chave estava escondida</summary><div><p>Em um jogo que roda no computador do jogador, qualquer chave pode ser encontrada. Trate a assinatura como obstáculo, não como cofre.</p></div></details><details><summary>Salvei uma senha no Git sem querer</summary><div><p>Remover o arquivo no commit seguinte não apaga o histórico. Troque a senha imediatamente e trate-a como comprometida.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC11_Seguranca_Integridade.pdf" download>Baixar Atividade Prática C11 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-10.html">← Módulo 10: Dados e save</a><a href="modulo-12.html">Módulo 12: Testes e entrega →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

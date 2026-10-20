@@ -1,0 +1,216 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 12 · Testes, otimização e entrega</title><meta name="description" content="Qualidade e entrega de jogos em Unity: Unity Test Framework (EditMode e PlayMode), assembly definitions, Profiler, build para Windows, versionamento e publicação.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 12 de 12 · 15h</span></div>
+<header class="hero"><h1>Testes, otimização e entrega</h1><p>Você prova que o jogo funciona com testes automáticos, mede o desempenho, gera a versão final e entrega o projeto de modo que outra pessoa consiga baixar, jogar e entender.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#tipos">Três formas de testar</a></li><li><a href="#preparar">Preparando o projeto para testes</a></li><li><a href="#editmode">Testes em modo de edição</a></li><li><a href="#playmode">Testes em modo de jogo</a></li><li><a href="#desempenho">Medir antes de otimizar</a></li><li><a href="#build">Gerando a build</a></li><li><a href="#entregar">Entregando o projeto</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior, o trabalho terminava quando o material estava pronto para ser entregue: arquivos nomeados, formatos corretos, documentação junto. Aqui o raciocínio é o mesmo, com uma etapa a mais: antes de entregar, você <strong>prova</strong> que o jogo funciona, e depois empacota tudo para que outra pessoa o execute sem a sua ajuda.</p>
+<div class="note"><strong>Dica de produção.</strong> Entregar é parte do projeto, não um favor no fim. Reserve pelo menos um dia inteiro para testes, build e documentação, e comece pela build: quase todo grupo descobre na véspera que o jogo funciona no Editor e quebra no executável.</div></section>
+
+<section id="tipos"><h2>Três formas de testar</h2>
+<table><tr><th>Tipo</th><th>Como</th><th>Bom para</th></tr><tr><td>Playtest</td><td>Outra pessoa joga e você observa em silêncio</td><td>Entender se o jogo é claro, justo e divertido</td></tr><tr><td>Teste em modo de edição (EditMode)</td><td>Código automático, roda sem apertar Play</td><td>Regras puras: busca de caminho, validação, save</td></tr><tr><td>Teste em modo de jogo (PlayMode)</td><td>Código automático que roda a cena de verdade</td><td>Componentes que precisam de <code>Awake</code>, física e tempo</td></tr></table>
+<p>Os testes automáticos protegem contra a regressão: ao mudar o código na semana da entrega, você descobre em segundos se quebrou o que já funcionava.</p></section>
+
+<section id="preparar"><h2>Preparando o projeto para testes</h2>
+<p>O Unity Test Framework já acompanha o projeto (confira em <em>Window &gt; Package Manager</em>; se não aparecer, instale <strong>Test Framework</strong>). Para que o código de teste enxergue o seu código, ele precisa estar dentro de um <strong>assembly definition</strong>:</p>
+<div class="steps"><div class="step"><h3>Crie o assembly do jogo</h3><p>Na pasta <code>Assets/Scripts</code>, botão direito &gt; <em>Create &gt; Scripting &gt; Assembly Definition</em>, com o nome <code>Jogo</code>. No Inspector, em <em>Assembly Definition References</em>, adicione <code>Unity.InputSystem</code>.</p></div><div class="step"><h3>Crie as pastas de teste</h3><p>Em <code>Assets/Tests</code>, use <em>Create &gt; Testing &gt; Test Assembly Folder</em> duas vezes: uma para <code>EditMode</code> e outra para <code>PlayMode</code>. Em cada assembly de teste, adicione <code>Jogo</code> às referências.</p></div><div class="step"><h3>Abra o executor</h3><p><em>Window &gt; General &gt; Test Runner</em>. As abas <em>EditMode</em> e <em>PlayMode</em> listam os testes e permitem rodar um ou todos.</p></div></div></section>
+
+<section id="editmode"><h2>Testes em modo de edição</h2>
+<p>Cada teste tem três partes: preparar (<em>arrange</em>), agir (<em>act</em>) e conferir (<em>assert</em>). Estes testes verificam o código dos módulos 8, 10 e 11:</p>
+<span class="file">JogoEditModeTests.cs</span>
+<pre><code><span class="k">using</span> System.IO;
+<span class="k">using</span> System.Text.RegularExpressions;
+<span class="k">using</span> NUnit.Framework;
+<span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.TestTools;
+
+<span class="k">public</span> <span class="k">class</span> BuscaEmLarguraTests
+{
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Contorna_o_muro_pelo_caminho_mais_curto()
+    {
+        <span class="k">var</span> parede = <span class="k">new</span> <span class="k">bool</span>[5, 5];
+        <span class="k">for</span> (<span class="k">int</span> y = 0; y &lt; 4; y++) parede[2, y] = <span class="k">true</span>;   <span class="c">// passagem só em y = 4</span>
+
+        <span class="k">var</span> caminho = BuscaEmLargura.Caminho(parede, <span class="k">new</span> Vector2Int(0, 0), <span class="k">new</span> Vector2Int(4, 0));
+
+        Assert.IsNotNull(caminho);
+        Assert.AreEqual(13, caminho.Count);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Destino_isolado_devolve_null()
+    {
+        <span class="k">var</span> parede = <span class="k">new</span> <span class="k">bool</span>[5, 5];
+        <span class="k">for</span> (<span class="k">int</span> y = 0; y &lt; 5; y++) parede[2, y] = <span class="k">true</span>;
+
+        Assert.IsNull(BuscaEmLargura.Caminho(parede, <span class="k">new</span> Vector2Int(0, 0), <span class="k">new</span> Vector2Int(4, 0)));
+    }
+}
+
+<span class="k">public</span> <span class="k">class</span> ValidadorDeSaveTests
+{
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Limita_pontos_e_vida()
+    {
+        <span class="k">var</span> d = ValidadorDeSave.Sanear(<span class="k">new</span> DadosSave { pontos = <span class="k">int</span>.MaxValue, vida = -5 });
+
+        Assert.AreEqual(1_000_000, d.pontos);
+        Assert.AreEqual(1, d.vida);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Posicao_invalida_volta_para_a_origem()
+    {
+        <span class="k">var</span> d = ValidadorDeSave.Sanear(<span class="k">new</span> DadosSave { posicao = <span class="k">new</span> Vector3(<span class="k">float</span>.NaN, 0, 0) });
+
+        Assert.AreEqual(Vector3.zero, d.posicao);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Remove_itens_impossiveis()
+    {
+        <span class="k">var</span> d = <span class="k">new</span> DadosSave();
+        d.itens.Add(<span class="k">new</span> ItemSalvo { nome = <span class="s">"Chave"</span>, quantidade = 2 });
+        d.itens.Add(<span class="k">new</span> ItemSalvo { nome = <span class="s">"Truque"</span>, quantidade = 99999 });
+
+        ValidadorDeSave.Sanear(d);
+
+        Assert.AreEqual(1, d.itens.Count);
+    }
+}
+
+<span class="k">public</span> <span class="k">class</span> SaveTests
+{
+    <span class="k">private</span> <span class="k">const</span> <span class="k">int</span> Slot = 99;   <span class="c">// slot só para testes, para nunca tocar no save real</span>
+
+    [TearDown]
+    <span class="k">public</span> <span class="k">void</span> Limpar()
+    {
+        SistemaSave.Apagar(Slot);
+        <span class="k">string</span> seguro = Path.Combine(Application.persistentDataPath, <span class="s">"seguro.json"</span>);
+        <span class="k">if</span> (File.Exists(seguro)) File.Delete(seguro);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Salvar_e_carregar_devolve_os_mesmos_dados()
+    {
+        SistemaSave.Salvar(<span class="k">new</span> DadosSave { pontos = 42, vida = 2, fase = <span class="s">"Cripta"</span> }, Slot);
+
+        DadosSave lido = SistemaSave.Carregar(Slot);
+
+        Assert.AreEqual(42, lido.pontos);
+        Assert.AreEqual(2, lido.vida);
+        Assert.AreEqual(<span class="s">"Cripta"</span>, lido.fase);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Arquivo_corrompido_vira_partida_nova()
+    {
+        File.WriteAllText(Path.Combine(Application.persistentDataPath, $<span class="s">"save{Slot}.json"</span>), <span class="s">"{ isto nao e json"</span>);
+        LogAssert.Expect(LogType.Warning, <span class="k">new</span> Regex(<span class="s">"ileg"</span>));
+
+        DadosSave lido = SistemaSave.Carregar(Slot);
+
+        Assert.AreEqual(0, lido.pontos);
+    }
+
+    [Test]
+    <span class="k">public</span> <span class="k">void</span> Save_assinado_valido_carrega_e_editado_e_recusado()
+    {
+        SaveAssinado.Salvar(<span class="k">new</span> DadosSave { pontos = 5 });
+        Assert.IsTrue(SaveAssinado.TentarCarregar(<span class="k">out</span> DadosSave ok));
+        Assert.AreEqual(5, ok.pontos);
+
+        <span class="k">string</span> arquivo = Path.Combine(Application.persistentDataPath, <span class="s">"seguro.json"</span>);
+        File.WriteAllText(arquivo, File.ReadAllText(arquivo).Replace(<span class="s">"\"pontos\":5"</span>, <span class="s">"\"pontos\":9999"</span>));
+
+        Assert.IsFalse(SaveAssinado.TentarCarregar(<span class="k">out</span> _));
+    }
+}</code></pre>
+<p>Dê nomes que contem uma história (<code>Destino_isolado_devolve_null</code>): quando o teste falhar, o nome já diz o que quebrou.</p></section>
+
+<section id="playmode"><h2>Testes em modo de jogo</h2>
+<p>Componentes como <code>Vida</code> precisam que a Unity chame <code>Awake</code>, o que só acontece rodando a cena. O teste vira uma <strong>corrotina</strong> marcada com <code>[UnityTest]</code>: cada <code>yield return null</code> espera um quadro.</p>
+<span class="file">JogoPlayModeTests.cs</span>
+<pre><code><span class="k">using</span> System.Collections;
+<span class="k">using</span> NUnit.Framework;
+<span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.TestTools;
+
+<span class="k">public</span> <span class="k">class</span> VidaTests
+{
+    <span class="k">private</span> GameObject objeto;
+
+    [SetUp] <span class="k">public</span> <span class="k">void</span> Criar() =&gt; objeto = <span class="k">new</span> GameObject(<span class="s">"Teste"</span>);
+    [TearDown] <span class="k">public</span> <span class="k">void</span> Destruir() =&gt; Object.Destroy(objeto);
+
+    [UnityTest]
+    <span class="k">public</span> IEnumerator Dano_reduz_a_vida_e_nao_passa_de_zero()
+    {
+        <span class="k">var</span> vida = objeto.AddComponent&lt;Vida&gt;();
+        yield <span class="k">return</span> <span class="k">null</span>;                      <span class="c">// deixa o Awake rodar</span>
+
+        vida.ReceberDano(1);
+        Assert.AreEqual(vida.Maxima - 1, vida.Atual);
+
+        vida.ReceberDano(999);
+        Assert.AreEqual(0, vida.Atual);
+    }
+
+    [UnityTest]
+    <span class="k">public</span> IEnumerator Cura_nao_passa_do_maximo()
+    {
+        <span class="k">var</span> vida = objeto.AddComponent&lt;Vida&gt;();
+        yield <span class="k">return</span> <span class="k">null</span>;
+
+        vida.ReceberDano(1);
+        vida.Curar(50);
+
+        Assert.AreEqual(vida.Maxima, vida.Atual);
+    }
+
+    [UnityTest]
+    <span class="k">public</span> IEnumerator Segundo_gerente_e_descartado()
+    {
+        <span class="k">var</span> primeiro = objeto.AddComponent&lt;GerenteDeJogo&gt;();
+        yield <span class="k">return</span> <span class="k">null</span>;
+
+        <span class="k">var</span> outro = <span class="k">new</span> GameObject(<span class="s">"Outro"</span>).AddComponent&lt;GerenteDeJogo&gt;();
+        yield <span class="k">return</span> <span class="k">null</span>;
+
+        Assert.IsTrue(outro == <span class="k">null</span>);           <span class="c">// foi destruído pelo Awake</span>
+        Assert.AreSame(primeiro, GerenteDeJogo.Instancia);
+    }
+}</code></pre>
+<div class="check"><strong>Checkpoint:</strong> a aba EditMode mostra todos os testes em verde, a aba PlayMode também, e ao quebrar de propósito uma regra (por exemplo, trocar 13 por 12) o teste correspondente fica vermelho.</div></section>
+
+<section id="desempenho"><h2>Medir antes de otimizar</h2>
+<p>Otimizar sem medir é adivinhar. Abra o <strong>Profiler</strong> (<em>Window &gt; Analysis &gt; Profiler</em>), aperte Play e jogue o trecho mais pesado do jogo:</p>
+<table><tr><th>Sintoma</th><th>Onde olhar</th><th>Causas comuns</th></tr><tr><td>Quedas de quadros em picos</td><td>Linha <em>CPU Usage</em></td><td>Muitos <code>Instantiate</code>, <code>FindObjectOfType</code> no <code>Update</code></td></tr><tr><td>Travadinhas periódicas</td><td>Coluna <em>GC Alloc</em></td><td>Criação de objetos a cada quadro (use pool, módulo 9)</td></tr><tr><td>Jogo lento em geral</td><td>Aba <em>Rendering</em></td><td>Muitos objetos com materiais diferentes, luzes em tempo real demais</td></tr><tr><td>Memória alta</td><td><em>Memory Profiler</em></td><td>Texturas grandes demais, áudio sem compressão</td></tr></table>
+<p>Meta para a entrega: <strong>60 quadros por segundo</strong> estáveis no computador do laboratório. Registre o valor medido, não uma impressão.</p></section>
+
+<section id="build"><h2>Gerando a build</h2>
+<div class="steps"><div class="step"><h3>Configure o jogo</h3><p>Em <em>Edit &gt; Project Settings &gt; Player</em>, preencha nome da empresa e do produto, versão (por exemplo <code>1.0.0</code>) e ícone.</p></div><div class="step"><h3>Liste as cenas</h3><p>Em <em>File &gt; Build Profiles</em>, na plataforma <em>Windows</em>, confira se todas as cenas do jogo aparecem em <em>Scenes in Build</em>, na ordem certa. Cena fora da lista é o erro de build mais comum.</p></div><div class="step"><h3>Gere o executável</h3><p>Clique em <em>Build</em> e escolha uma pasta vazia fora do projeto. A Unity cria o <code>.exe</code> e uma pasta de dados.</p></div><div class="step"><h3>Teste a build, não o Editor</h3><p>Em outro computador, ou ao menos em outra conta, rode o executável do começo ao fim, incluindo salvar e carregar. Erros que aparecem só aqui costumam ser caminhos, cenas esquecidas ou arquivos que dependiam do Editor.</p></div><div class="step"><h3>Compacte</h3><p>Compacte a pasta inteira em um <code>.zip</code> com o nome <code>NomeDoJogo_v1.0.0_Windows.zip</code>.</p></div></div></section>
+
+<section id="entregar"><h2>Entregando o projeto</h2>
+<p>Uma entrega completa tem quatro partes, e qualquer pessoa deve conseguir usar cada uma sem perguntar nada:</p>
+<table><tr><th>Parte</th><th>Conteúdo</th><th>Onde</th></tr><tr><td>Jogo</td><td>A build compactada</td><td>Release no GitHub ou página no itch.io</td></tr><tr><td>Código</td><td>O projeto Unity limpo, sem as pastas <code>Library</code>, <code>Temp</code> e <code>Logs</code></td><td>Repositório Git com <code>.gitignore</code> de Unity</td></tr><tr><td>Leia-me</td><td>O que é, como jogar, controles, requisitos, equipe, créditos e licenças</td><td><code>README.md</code> na raiz</td></tr><tr><td>Registro</td><td>Versão marcada (<code>git tag v1.0.0</code>) e lista de mudanças</td><td>Release e histórico do Git</td></tr></table>
+<div class="note"><strong>Créditos e licenças.</strong> Todo asset de terceiros usado (sons, texturas, modelos, fontes) entra nos créditos com autor, origem e licença. Faça a lista conforme os assets entram no projeto, não na véspera.</div>
+<h3>Checklist final</h3>
+<ul><li>o jogo abre, joga do começo ao fim e fecha sem erro, em um computador diferente do seu;</li><li>os controles aparecem na tela inicial ou no <em>README</em>;</li><li>os testes automáticos passam;</li><li>o save funciona e resiste a arquivo apagado;</li><li>o Console da build não mostra erros em vermelho;</li><li>o repositório não tem senhas, chaves nem pastas geradas;</li><li>a versão está marcada e os créditos estão completos.</li></ul></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>pelo menos 6 testes automáticos úteis, entre EditMode e PlayMode, todos passando;</li><li>um relatório de playtest com observações de pessoas de fora da equipe;</li><li>um print do Profiler com o desempenho medido e uma melhoria feita a partir dele;</li><li>a build compactada, testada em outro computador;</li><li>repositório organizado com <em>README</em>, créditos, tag de versão e lista de mudanças.</li></ul>
+<p>As instruções completas estão na Atividade Prática C12.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O teste não encontra minhas classes</summary><div><p>O assembly de teste não referencia o assembly do jogo. Abra o arquivo <code>.asmdef</code> dos testes e adicione <code>Jogo</code> em <em>Assembly Definition References</em>.</p></div></details><details><summary>Depois de criar o assembly, aparecem erros de InputSystem</summary><div><p>O assembly <code>Jogo</code> não enxerga o pacote do Input System. Adicione <code>Unity.InputSystem</code> às referências dele.</p></div></details><details><summary>O teste de PlayMode falha só na primeira conferência</summary><div><p>Faltou um <code>yield return null</code> depois do <code>AddComponent</code>: o <code>Awake</code> ainda não rodou e os valores estão em zero.</p></div></details><details><summary>A build abre e fecha ou fica com tela cinza</summary><div><p>Confira <em>Scenes in Build</em> e o arquivo <code>Player.log</code> (em <em>AppData\LocalLow</em>, na pasta da empresa e do produto): ele diz qual erro derrubou o jogo.</p></div></details><details><summary>O repositório ficou gigante</summary><div><p>Faltou o <code>.gitignore</code> de Unity e as pastas <code>Library</code> e <code>Temp</code> foram para o Git. Adicione o arquivo, remova as pastas do índice com <code>git rm -r --cached</code> e faça um novo commit.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC12_Testes_Entrega.pdf" download>Baixar Atividade Prática C12 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-11.html">← Módulo 11: Segurança</a><span></span></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>

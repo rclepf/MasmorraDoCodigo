@@ -1,0 +1,150 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 10 · Dados, persistência e save</title><meta name="description" content="Persistência de dados em Unity: JsonUtility, Application.persistentDataPath, classes serializáveis, PlayerPrefs, versionamento e tratamento de arquivos corrompidos.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Literata:opsz,wght@7..72,400..700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<div class="wrap"><div class="top"><a href="index.html">Masmorra do Código</a><span>Módulo 10 de 12 · 15h</span></div>
+<header class="hero"><h1>Dados, persistência e save</h1><p>Você faz o jogo lembrar: pontuação, itens e posição do herói são gravados em um arquivo e recuperados na próxima partida, com versão e tolerância a erros.</p></header>
+<div class="layout"><nav class="toc" aria-label="Neste módulo"><b>Neste módulo</b><ol><li><a href="#ligacao">Ligação com a UC anterior</a></li><li><a href="#o-que">O que salvar e onde</a></li><li><a href="#modelo">Um modelo de dados serializável</a></li><li><a href="#gravar">Gravar e ler com segurança</a></li><li><a href="#ligar">Ligando o save ao jogo</a></li><li><a href="#slots">Boas práticas por mecânica</a></li><li><a href="#entrega">Checkpoint do módulo</a></li><li><a href="#erros">Problemas comuns</a></li></ol></nav>
+<article>
+<section id="ligacao"><h2>Ligação com a UC anterior</h2>
+<p>Na UC anterior você organizou seus arquivos de produção em pastas com nomes padronizados e planilhas de controle, para que qualquer pessoa da equipe encontrasse o que precisava. Um sistema de save faz o mesmo para o jogo: transforma o estado da partida em um <strong>arquivo organizado</strong> que pode ser guardado, lido e conferido.</p>
+<div class="note"><strong>Dica de produção.</strong> Liste, em papel, tudo o que o jogador espera encontrar ao voltar: fase, vida, itens, configurações. O que não está na lista não precisa ser salvo. Salvar menos é mais simples e mais seguro.</div></section>
+
+<section id="o-que"><h2>O que salvar e onde</h2>
+<table><tr><th>Tipo de dado</th><th>Exemplo</th><th>Onde guardar</th></tr><tr><td>Configurações leves</td><td>Volume, idioma, sensibilidade</td><td><code>PlayerPrefs</code></td></tr><tr><td>Progresso da partida</td><td>Fase, vida, inventário, posição</td><td>Arquivo JSON em <code>persistentDataPath</code></td></tr><tr><td>Conteúdo do jogo (não muda)</td><td>Itens, inimigos, falas</td><td><code>ScriptableObject</code> (módulo 6)</td></tr></table>
+<p><code>Application.persistentDataPath</code> é uma pasta que a Unity escolhe para cada sistema (no Windows, dentro de <em>AppData</em>) e que <strong>sobrevive</strong> a atualizações do jogo. Gravar dentro da pasta <code>Assets</code> só funciona no Editor e some no jogo final.</p></section>
+
+<section id="modelo"><h2>Um modelo de dados serializável</h2>
+<p>Comece separando o que é <em>estado salvo</em> do que são objetos da cena. Uma classe simples, marcada <code>[Serializable]</code>, guarda só números e textos:</p>
+<span class="file">DadosSave.cs</span>
+<pre><code><span class="k">using</span> System;
+<span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+[Serializable]
+<span class="k">public</span> <span class="k">class</span> ItemSalvo
+{
+    <span class="k">public</span> <span class="k">string</span> nome;
+    <span class="k">public</span> <span class="k">int</span> quantidade;
+}
+
+[Serializable]
+<span class="k">public</span> <span class="k">class</span> DadosSave
+{
+    <span class="k">public</span> <span class="k">const</span> <span class="k">int</span> VersaoAtual = 2;
+
+    <span class="k">public</span> <span class="k">int</span> versao = VersaoAtual;
+    <span class="k">public</span> <span class="k">string</span> fase = <span class="s">"Masmorra01"</span>;
+    <span class="k">public</span> <span class="k">int</span> pontos;
+    <span class="k">public</span> <span class="k">int</span> vida = 3;
+    <span class="k">public</span> Vector3 posicao;
+    <span class="k">public</span> List&lt;ItemSalvo&gt; itens = <span class="k">new</span> List&lt;ItemSalvo&gt;();
+}</code></pre>
+<p>A <code>JsonUtility</code> da Unity converte essa classe em texto e de volta. Ela entende campos públicos, listas e tipos como <code>Vector3</code>, mas <strong>não</strong> entende dicionários: por isso o inventário vira uma lista de <code>ItemSalvo</code> no arquivo, mesmo sendo um <code>Dictionary</code> no jogo.</p></section>
+
+<section id="gravar"><h2>Gravar e ler com segurança</h2>
+<span class="file">SistemaSave.cs</span>
+<pre><code><span class="k">using</span> System;
+<span class="k">using</span> System.IO;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">static</span> <span class="k">class</span> SistemaSave
+{
+    <span class="k">private</span> <span class="k">static</span> <span class="k">string</span> Caminho(<span class="k">int</span> slot) =&gt;
+        Path.Combine(Application.persistentDataPath, $<span class="s">"save{slot}.json"</span>);
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> Salvar(DadosSave dados, <span class="k">int</span> slot = 0)
+    {
+        <span class="k">string</span> destino = Caminho(slot);
+        <span class="k">string</span> temporario = destino + <span class="s">".tmp"</span>;
+
+        <span class="c">// Grava em arquivo temporário e só então troca: queda de energia no meio não destrói o save antigo</span>
+        File.WriteAllText(temporario, JsonUtility.ToJson(dados, <span class="k">true</span>));
+        <span class="k">if</span> (File.Exists(destino)) File.Delete(destino);
+        File.Move(temporario, destino);
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">bool</span> Existe(<span class="k">int</span> slot = 0) =&gt; File.Exists(Caminho(slot));
+
+    <span class="k">public</span> <span class="k">static</span> DadosSave Carregar(<span class="k">int</span> slot = 0)
+    {
+        <span class="k">if</span> (!Existe(slot)) <span class="k">return</span> <span class="k">new</span> DadosSave();
+
+        try
+        {
+            <span class="k">var</span> dados = JsonUtility.FromJson&lt;DadosSave&gt;(File.ReadAllText(Caminho(slot)));
+            <span class="k">return</span> dados == <span class="k">null</span> ? <span class="k">new</span> DadosSave() : Migrar(dados);
+        }
+        catch (Exception e)
+        {
+            <span class="c">// Arquivo corrompido: jogar uma partida nova é melhor que travar</span>
+            Debug.LogWarning($<span class="s">"Save {slot} ilegível ({e.Message}). Começando do zero."</span>);
+            <span class="k">return</span> <span class="k">new</span> DadosSave();
+        }
+    }
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> Apagar(<span class="k">int</span> slot = 0)
+    {
+        <span class="k">if</span> (Existe(slot)) File.Delete(Caminho(slot));
+    }
+
+    <span class="c">// Saves de versões antigas ganham valores padrão para campos novos</span>
+    <span class="k">private</span> <span class="k">static</span> DadosSave Migrar(DadosSave d)
+    {
+        <span class="k">if</span> (d.versao &lt; 2 &amp;&amp; d.vida &lt;= 0) d.vida = 3;
+        d.versao = DadosSave.VersaoAtual;
+        <span class="k">return</span> d;
+    }
+}</code></pre>
+<p>Três cuidados já aparecem neste código: <strong>gravação atômica</strong> (arquivo temporário e troca), <strong>tolerância a falhas</strong> (<code>try/catch</code> devolvendo uma partida nova) e <strong>versão</strong> (jogadores com saves antigos continuam podendo jogar quando você acrescenta campos).</p></section>
+
+<section id="ligar"><h2>Ligando o save ao jogo</h2>
+<p>O save lê e escreve o estado dos seus componentes. Um componente fino faz a ponte:</p>
+<span class="file">PontoDeSave.cs</span>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> PontoDeSave : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform jogador;
+    [SerializeField] <span class="k">private</span> Vida vida;
+
+    <span class="k">public</span> DadosSave Capturar()
+    {
+        <span class="k">var</span> dados = <span class="k">new</span> DadosSave();
+        dados.vida = vida.Atual;
+        dados.posicao = jogador.position;
+        dados.pontos = GerenteDeJogo.Instancia != <span class="k">null</span> ? GerenteDeJogo.Instancia.Pontos : 0;
+        <span class="k">return</span> dados;
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Aplicar(DadosSave dados)
+    {
+        <span class="c">// CharacterController ignora a posição se estiver ligado: desligue por um instante</span>
+        <span class="k">var</span> controle = jogador.GetComponent&lt;CharacterController&gt;();
+        <span class="k">if</span> (controle != <span class="k">null</span>) controle.enabled = <span class="k">false</span>;
+        jogador.position = dados.posicao;
+        <span class="k">if</span> (controle != <span class="k">null</span>) controle.enabled = <span class="k">true</span>;
+
+        vida.Curar(dados.vida - vida.Atual);
+    }
+
+    [ContextMenu(<span class="s">"Salvar agora"</span>)] <span class="k">private</span> <span class="k">void</span> Salvar() =&gt; SistemaSave.Salvar(Capturar());
+    [ContextMenu(<span class="s">"Carregar agora"</span>)] <span class="k">private</span> <span class="k">void</span> Carregar() =&gt; Aplicar(SistemaSave.Carregar());
+}</code></pre>
+<div class="steps"><div class="step"><h3>Salve pelo menu de contexto</h3><p>Em Play, clique com o botão direito no componente e escolha <em>Salvar agora</em>. Abra a pasta mostrada em <code>Application.persistentDataPath</code> (imprima-a com <code>Debug.Log</code>) e confira o arquivo.</p></div><div class="step"><h3>Mude o estado e carregue</h3><p>Ande, leve dano e escolha <em>Carregar agora</em>. O herói deve voltar ao ponto salvo com a vida salva.</p></div><div class="step"><h3>Estrague o arquivo de propósito</h3><p>Apague metade do texto do JSON e carregue de novo. O jogo precisa continuar rodando, com um aviso no Console.</p></div></div>
+<div class="check"><strong>Checkpoint:</strong> o jogo grava e restaura posição, vida e pontos, e não quebra quando o arquivo está corrompido ou não existe.</div></section>
+
+<section id="slots"><h2>Boas práticas por mecânica</h2>
+<table><tr><th>Mecânica</th><th>O que salvar</th><th>Cuidado</th></tr><tr><td>Plataforma</td><td>Último checkpoint, coletáveis já pegos</td><td>Salvar o identificador do checkpoint, não a posição exata</td></tr><tr><td>Stealth</td><td>Fase, itens, alarmes já disparados</td><td>Não salvar posição dos guardas: recriar a rota ao carregar</td></tr><tr><td>Survival</td><td>Inventário, fome, sede, hora do dia, construções</td><td>Lista longa: use versão e migração</td></tr><tr><td>Corrida</td><td>Melhores tempos, carros liberados</td><td>Dados pequenos e leves: bom caso para PlayerPrefs</td></tr><tr><td>Puzzle</td><td>Fases concluídas e estrelas</td><td>Salvar depois de cada fase, não só ao sair</td></tr></table></section>
+
+<section id="entrega"><h2>Checkpoint do módulo</h2>
+<ul><li>uma classe de dados serializável com versão;</li><li>gravação atômica e leitura com tratamento de arquivo ausente ou corrompido;</li><li>pelo menos 3 informações da partida salvas e restauradas;</li><li>configurações simples guardadas com <code>PlayerPrefs</code>;</li><li>um teste documentado com arquivo apagado e arquivo estragado.</li></ul>
+<p>As instruções completas estão na Atividade Prática C10.</p></section>
+
+<section id="erros"><h2>Problemas comuns</h2>
+<details><summary>O arquivo não aparece onde esperava</summary><div><p>Imprima <code>Application.persistentDataPath</code> no Console: o caminho muda por sistema e por nome do projeto. No Windows fica em <em>AppData\LocalLow</em>.</p></div></details><details><summary>Um dicionário ou propriedade não foi salvo</summary><div><p>A <code>JsonUtility</code> só grava campos públicos ou marcados com <code>[SerializeField]</code>, e não grava dicionários. Converta para lista de itens simples.</p></div></details><details><summary>Ao carregar, o herói volta para a posição errada</summary><div><p>O <code>CharacterController</code> ligado ignora mudanças de posição. Desligue-o, mova e ligue de novo, como no <code>PontoDeSave</code>.</p></div></details><details><summary>Depois de acrescentar um campo, saves antigos dão valores zerados</summary><div><p>Isso é esperado: campos novos vêm com o padrão do tipo. Use a <code>versao</code> e a função de migração para definir valores corretos.</p></div></details></section>
+<p><a class="dl" href="atividades/AtividadeC10_Dados_Save.pdf" download>Baixar Atividade Prática C10 (PDF)</a></p>
+</article></div>
+<nav class="pager" aria-label="Navegação entre módulos"><a href="modulo-09.html">← Módulo 09: Padrões de projeto</a><a href="modulo-11.html">Módulo 11: Segurança →</a></nav>
+<footer>Material de apoio didático · UC Codificação de Sistemas de Jogos Digitais · Prof. Rodolfo Clepf</footer></div></body></html>
